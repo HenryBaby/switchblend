@@ -116,7 +116,7 @@ Create a file named `docker-compose.yml` and another file named `.env` with the 
 
     services:
     switchblend:
-        image: ladybug/switchblend:latest
+        image: henrybaby/switchblend:latest
         container_name: switchblend
         hostname: switchblend
         environment:
