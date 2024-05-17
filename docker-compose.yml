@@ -4,14 +4,13 @@ volumes:
 
 services:
   switchblend:
-    image: ladybug/switchblend:latest
+    image: .
     container_name: switchblend
-    hostname: switchblend
     environment:
       - TZ=${TZ}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
     ports:
       - 5000:5000
     volumes:
-      - switchblend:/downloads:rw
+      - switchblend:/app/downloads:rw
     restart: unless-stopped
