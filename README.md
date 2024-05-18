@@ -1,5 +1,9 @@
 # switchblend
 
+![Docker Image Version](https://img.shields.io/docker/v/henrybaby/switchblend)
+![Docker Pulls](https://img.shields.io/docker/pulls/henrybaby/switchblend)
+![Docker Image Size](https://img.shields.io/docker/image-size/henrybaby/switchblend)
+
 I wrote this because I was tired of the process of updating my custom firmware and homebrew packages. Going through the process of getting everything together, unpacking, and making the changes that are tailor-made to my specific needs felt kind of meh to me, so I was looking for an AIO solution, but even then they were never quite what I was looking for. The general idea of this is to add the cfw/homebrew to your sources list, and then define a set of "cleanup" tasks to be done to the files before packaging them.
 
 The files are downloaded to `/downloads/input`, and then extracted/moved to `/downloads/output`, the cleanup tasks (which you can define in the tasks tab following the instructions below) are basically four simple commands to manipulate the files within the output folder. 
