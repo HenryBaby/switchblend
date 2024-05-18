@@ -315,4 +315,4 @@ if __name__ == "__main__":
     scheduler.start()
     logger.info("Scheduler started")
 
-    app.run(debug=True, host="0.0.0.0", use_reloader=False, port=5050)
+    app.run(debug=True, host="0.0.0.0", use_reloader=False)
