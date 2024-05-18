@@ -205,8 +205,8 @@ Trigger the packaging process manually by clicking the **Package** button in the
 
 ## Roadmap
 Planned feature, in no particular order.
- - [ ] Support for uploading directly to switch.
+ - [x] Support for uploading directly to switch.
  - [ ] Support for other sources than just GitHub API (currently does support .zip file downloads directly but it's a bit wonky, so stay away from it until a proper release).
  - [ ] Extend some of the functionality to env parameters, like the update scanner interval.
- - [ ] Profile-based management (switch specific sources/tasks.json for people with multiple switch units).
+ - [x] Profile-based management (switch specific sources/tasks.json for people with multiple switch units).
  - [ ] Multi-arch docker image: (Currently only supports `linux/arm64`).

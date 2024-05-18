@@ -18,6 +18,31 @@
         .table-warning {
             background-color: #fff3cd !important;
         }
+
+        .card {
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+        }
+
+        .card-title {
+            margin-bottom: 0.5rem;
+        }
+
+        .card-text {
+            font-size: 0.9rem;
+        }
+
+        .btn-danger,
+        .btn-secondary {
+            margin-right: 1px;
+        }
+
+        .modal .form-label {
+            font-weight: bold;
+        }
     </style>
 </head>
 
@@ -27,6 +52,7 @@
         {% block content %}
         {% endblock %}
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>
