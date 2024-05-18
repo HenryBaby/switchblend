@@ -5,16 +5,18 @@ import shutil
 import download_manager
 import cleanup
 import package_manager
+import upload_manager
 import logging
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 from threading import Thread
 from apscheduler.schedulers.background import BackgroundScheduler
+from pytz import timezone
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-scheduler = BackgroundScheduler()
+scheduler = BackgroundScheduler(timezone=timezone("Europe/Stockholm"))
 
 
 def load_json(filename):
@@ -25,6 +27,18 @@ def load_json(filename):
 def save_json(data, filename):
     with open(filename, "w") as file:
         json.dump(data, file, indent=4)
+
+
+def load_devices():
+    return load_json("config/devices.json").get("devices", [])
+
+
+def save_devices(devices):
+    save_json({"devices": devices}, "config/devices.json")
+
+
+def get_devices():
+    return load_devices()
 
 
 def run_background_task(func, *args):
@@ -127,8 +141,13 @@ def reset_updated_fields():
 @app.route("/")
 def index():
     projects, last_checked = get_urls()
+    devices = get_devices()
     return render_template(
-        "index.html", projects=projects, last_checked=last_checked, current_page="home"
+        "index.html",
+        projects=projects,
+        last_checked=last_checked,
+        current_page="home",
+        devices=devices,
     )
 
 
@@ -137,11 +156,13 @@ def manage_urls():
     if request.method == "POST":
         update_urls()
     projects, last_checked = get_urls()
+    devices = get_devices()
     return render_template(
         "sources.html",
         projects=projects,
         last_checked=last_checked,
         current_page="sources",
+        devices=devices,
     )
 
 
@@ -150,8 +171,9 @@ def manage_tasks():
     if request.method == "POST":
         update_tasks()
     tasks = get_tasks()
+    devices = get_devices()
     return render_template(
-        "tasks.html", tasks=tasks, title="Tasks", current_page="tasks"
+        "tasks.html", tasks=tasks, title="Tasks", current_page="tasks", devices=devices
     )
 
 
@@ -213,6 +235,77 @@ def run_package():
     return redirect(referer if referer else url_for("index"))
 
 
+@app.route("/devices", methods=["GET", "POST"])
+def manage_devices():
+    if request.method == "POST":
+        devices = load_devices()
+        new_device = {
+            "name": request.form.get("device_name"),
+            "model": request.form.get("device_model"),
+            "hos_version": request.form.get("hos_version"),
+            "ams_version": request.form.get("ams_version"),
+            "ip": request.form.get("ip"),
+            "port": request.form.get("port"),
+            "username": request.form.get("username"),
+            "password": request.form.get("password"),
+        }
+        devices.append(new_device)
+        save_devices(devices)
+        return redirect(url_for("manage_devices"))
+
+    devices = get_devices()
+    return render_template("devices.html", devices=devices, current_page="devices")
+
+
+@app.route("/edit-device", methods=["POST"])
+def edit_device():
+    original_name = request.form.get("original_device_name")
+    devices = load_devices()
+    for device in devices:
+        if device["name"] == original_name:
+            device["name"] = request.form.get("device_name")
+            device["model"] = request.form.get("device_model")
+            device["hos_version"] = request.form.get("hos_version")
+            device["ams_version"] = request.form.get("ams_version")
+            device["ip"] = request.form.get("ip")
+            device["port"] = request.form.get("port")
+            device["username"] = request.form.get("username")
+            device["password"] = request.form.get("password")
+            break
+    save_devices(devices)
+    return redirect(url_for("manage_devices"))
+
+
+@app.route("/delete-device", methods=["POST"])
+def delete_device():
+    device_name = request.form.get("device_name")
+    devices = load_devices()
+    devices = [device for device in devices if device["name"] != device_name]
+    save_devices(devices)
+    return redirect(url_for("manage_devices"))
+
+
+@app.route("/upload", methods=["POST"])
+def upload():
+    device_name = request.form.get("device_name")
+    devices = load_devices()
+    device = next((d for d in devices if d["name"] == device_name), None)
+    if device:
+        success, message = upload_manager.upload_to_device(
+            device["ip"],
+            device["port"],
+            device["username"],
+            device["password"],
+            "downloads/output",
+        )
+        if success:
+            return jsonify({"status": "success", "message": message})
+        else:
+            return jsonify({"status": "error", "message": message})
+    else:
+        return jsonify({"status": "error", "message": "Device not found"})
+
+
 def scheduled_job():
     download_manager.check_and_update_sources()
 
@@ -222,4 +315,4 @@ if __name__ == "__main__":
     scheduler.start()
     logger.info("Scheduler started")
 
-    app.run(debug=True, host="0.0.0.0", use_reloader=False)
+    app.run(debug=True, host="0.0.0.0", use_reloader=False, port=5050)
