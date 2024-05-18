@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-scheduler = BackgroundScheduler(timezone=timezone("Europe/Stockholm"))
+scheduler = BackgroundScheduler()
 
 
 def load_json(filename):
