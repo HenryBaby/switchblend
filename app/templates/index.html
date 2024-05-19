@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Configuration Management{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+    <table id="projectsTable" class="display">
+        <thead>
+            <tr>
+                <th>Project Name</th>
+                <th>Last Updated</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for project in projects %}
+            <tr>
+                <td {% if project.updated %}class="table-warning" {% endif %}>{{ project.name }}</td>
+                <td {% if project.updated %}class="table-warning" {% endif %}>{{ project.last_updated }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p>Last update check: {{ last_checked }}</p>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#projectsTable').DataTable({
+            stateSave: true,
+            stateDuration: -1,
+            columns: [
+                { width: "70%" },
+                { width: "30%" }
+            ]
+        });
+    });
+</script>
+{% endblock %}
