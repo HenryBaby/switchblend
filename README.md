@@ -140,9 +140,9 @@ Create a file named `docker-compose.yml` and another file named `.env` with the 
     GITHUB_TOKEN=your_github_token
     ```
 
-### Configuration
+## Configuration
 
-#### Sources
+### Sources
 
 Manage sources by adding or removing GitHub URLs. This can be done through the **Sources** page in the web interface.
 
@@ -153,7 +153,7 @@ https://api.github.com/repos/USER_NAME/REPO_NAME/releases?per_page=1&sort=create
 ```
 3. Delete a source by clicking the delete button next to the source entry.
 
-#### Tasks
+### Tasks
 
 Manage tasks for file operations such as delete, move, copy, and rename.
 
@@ -189,7 +189,7 @@ Each task consists of a command and source and destination paths. The following 
     rename file_or_directory /path/to/new_name
     ```
 
-### Usage
+## Usage
 
 #### Web GUI
 
