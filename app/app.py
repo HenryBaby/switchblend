@@ -219,6 +219,7 @@ def run_downloads():
 
 @app.route("/run-cleanup")
 def run_cleanup():
+    print("Running cleanup tasks")
     run_background_task(cleanup.delete_files, "config/tasks.json")
     should_clear_input = request.args.get("clear") == "true"
     if should_clear_input:

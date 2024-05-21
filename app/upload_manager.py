@@ -1,5 +1,5 @@
-import ftplib
 import os
+import ftplib
 import logging
 
 logging.basicConfig(level=logging.INFO)
