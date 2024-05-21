@@ -8,14 +8,16 @@ import package_manager
 import upload_manager
 import logging
 from flask import Flask, render_template, request, redirect, url_for, jsonify
-from threading import Thread
 from apscheduler.schedulers.background import BackgroundScheduler
+from threading import Thread
+from flask_cors import CORS
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 scheduler = BackgroundScheduler()
+CORS(app)
 
 
 def load_json(filename):
@@ -245,6 +247,34 @@ def run_downloads():
     run_background_task(download_and_reset)
     referer = request.headers.get("Referer")
     return redirect(referer if referer else url_for("index"))
+
+
+@app.route("/download-source", methods=["POST"])
+def download_source():
+    project_name = request.form.get("project_name")
+    data = load_json("config/sources.json")
+    project = data["GitHub"].get(project_name)
+
+    if project:
+        url = project["url"]
+        try:
+            if url.endswith(".zip") or url.endswith(".7z"):
+                download_manager.handle_download_tasks(url)
+            else:
+                download_manager.download_from_github_api(project_name, project)
+            return jsonify(
+                {
+                    "status": "success",
+                    "message": f"Downloaded {project_name} successfully.",
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error downloading source {project_name}: {e}")
+            return jsonify(
+                {"status": "error", "message": f"Failed to download {project_name}."}
+            )
+    else:
+        return jsonify({"status": "error", "message": "Project not found"})
 
 
 @app.route("/run-cleanup")

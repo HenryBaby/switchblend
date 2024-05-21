@@ -16,7 +16,7 @@
 </div>
 
 <div class="container-fluid mt-4">
-    <form action="/sources" method="post">
+    <form id="sourceForm" action="/sources" method="post">
         <div class="row mb-4 align-items-center justify-content-md-center">
             <div class="col-md-2 px-1">
                 <input type="text" class="form-control" placeholder="Project Name" name="new_name" required>
@@ -29,7 +29,6 @@
             </div>
         </div>
 
-
         {% for project in projects %}
         <div class="row mb-1 align-items-center justify-content-md-center">
             <div class="col-md-2 px-1">
@@ -40,6 +39,7 @@
             </div>
             <div class="col-md-1">
                 <button type="button" class="btn btn-danger" onclick="deleteUrl('{{ project.name }}')">X</button>
+                <button type="button" class="btn btn-success" onclick="downloadSource('{{ project.name }}')">↓</button>
             </div>
         </div>
         {% endfor %}
@@ -60,6 +60,23 @@
             document.body.appendChild(form);
             form.submit();
         }
+    }
+
+    function downloadSource(projectName) {
+        $.ajax({
+            type: 'POST',
+            url: '/download-source',
+            data: { project_name: projectName },
+            success: function (response) {
+                alert(response.message);
+                if (response.status === "success") {
+                    location.reload(); // Reload the page to reflect any changes
+                }
+            },
+            error: function (xhr, status, error) {
+                alert('An error occurred while downloading the source.');
+            }
+        });
     }
 </script>
 {% endblock %}
