@@ -34,47 +34,27 @@ def delete_files(file_list_filename):
 def execute_command(command, path):
     logger.info(f"Executing command: {command}, path: {path}")
     base_path = "downloads/output/"
-    if " " in path:
-        source, destination = map(str.strip, path.split(" ", 1))
-        source_path = os.path.join(base_path, source)
-        destination_path = os.path.join(base_path, destination)
-    else:
-        source_path = os.path.join(base_path, path)
-        destination_path = ""
+    source_path = os.path.join(base_path, path.strip())
 
-    logger.info(
-        f"Resolved source path: {source_path}, destination path: {destination_path}"
-    )
-
-    source_paths = glob.glob(source_path)
-    if not source_paths:
-        logger.error(f"Source path does not exist or no files match: '{source_path}'")
-        return
-
-    for src in source_paths:
-        logger.info(f"Processing source: {src}")
-        if destination_path:
-            dest = destination_path
-            if os.path.isdir(src) and not dest.endswith("/"):
-                dest = os.path.join(dest, os.path.basename(src))
-            elif not os.path.isdir(src) and os.path.isdir(dest):
-                dest = os.path.join(dest, os.path.basename(src))
-        else:
-            dest = destination_path
-
+    if command == "delete":
+        delete_path(source_path)
+    elif command in ["rename", "move", "copy"]:
         try:
-            if command == "delete":
-                delete_path(src)
-            elif command == "rename":
-                rename_path(src, dest)
-            elif command == "move":
-                move_path(src, dest)
-            elif command == "copy":
-                copy_path(src, dest)
-            else:
-                logger.error(f"Unknown command '{command}'")
-        except OSError as e:
-            logger.error(f"Error executing {command} on {path}: {str(e)}")
+            source, destination = map(str.strip, path.split(" ", 1))
+            source_path = os.path.join(base_path, source)
+            destination_path = os.path.join(base_path, destination)
+        except ValueError:
+            logger.error(f"Invalid path for {command}: {path}")
+            return
+
+        if command == "rename":
+            rename_path(source_path, destination_path)
+        elif command == "move":
+            move_path(source_path, destination_path)
+        elif command == "copy":
+            copy_path(source_path, destination_path)
+    else:
+        logger.error(f"Unknown command '{command}'")
 
 
 def delete_path(path):
