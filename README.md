@@ -1,6 +1,6 @@
 # switchblend
 
-![Docker Image Version](https://img.shields.io/docker/v/henrybaby/switchblend?arch=arm64)
+
 ![Docker Pulls](https://img.shields.io/docker/pulls/henrybaby/switchblend)
 ![Docker Image Size](https://img.shields.io/docker/image-size/henrybaby/switchblend)
 
