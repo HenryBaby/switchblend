@@ -69,53 +69,83 @@ def get_tasks():
 
 
 def update_urls():
-    data = load_json("config/sources.json")
-    new_name = request.form.get("new_name")
-    new_url = request.form.get("new_url")
+    try:
+        data = load_json("config/sources.json")
+        new_name = request.form.get("new_name")
+        new_url = request.form.get("new_url")
 
-    if new_url and new_name:
-        new_entry = {"url": new_url, "name": new_name, "updated": True}
+        if new_url and new_name:
+            new_entry = {"url": new_url, "name": new_name, "updated": True}
 
-        if "api.github.com" in new_url:
-            try:
-                response = requests.get(new_url)
-                response.raise_for_status()
-                releases = response.json()
+            if "api.github.com" in new_url:
+                try:
+                    response = requests.get(new_url)
+                    response.raise_for_status()
+                    releases = response.json()
 
-                if isinstance(releases, list) and releases:
-                    latest_release = releases[0]
-                    asset_index = 1 if new_name == "DBI" else 0
+                    if isinstance(releases, list) and releases:
+                        latest_release = releases[0]
+                        asset_index = 1 if new_name == "DBI" else 0
 
-                    if len(latest_release["assets"]) > asset_index:
-                        last_updated = latest_release["assets"][asset_index].get(
-                            "updated_at"
-                        )
-                        if last_updated:
-                            last_updated = last_updated.replace("T", " ").replace(
-                                "Z", ""
+                        if len(latest_release["assets"]) > asset_index:
+                            last_updated = latest_release["assets"][asset_index].get(
+                                "updated_at"
                             )
-                            new_entry["last_updated"] = last_updated
-            except requests.RequestException:
-                pass
+                            if last_updated:
+                                last_updated = last_updated.replace("T", " ").replace(
+                                    "Z", ""
+                                )
+                                new_entry["last_updated"] = last_updated
+                except requests.RequestException as e:
+                    logger.error(f"Error fetching release info: {e}")
+                    return jsonify(
+                        {
+                            "status": "error",
+                            "message": "Failed to fetch release information from GitHub.",
+                        }
+                    )
 
-        data["GitHub"][new_name] = new_entry
-        save_json(data, "config/sources.json")
+            data["GitHub"][new_name] = new_entry
+            save_json(data, "config/sources.json")
+            return jsonify(
+                {"status": "success", "message": "URL updated successfully."}
+            )
+        else:
+            return jsonify({"status": "error", "message": "Name and URL are required."})
+    except Exception as e:
+        logger.error(f"Error updating URLs: {e}")
+        return jsonify(
+            {
+                "status": "error",
+                "message": "An unexpected error occurred while updating URLs.",
+            }
+        )
 
 
 def update_tasks():
-    data = load_json("config/tasks.json")
-    command = request.form.get("new_command")
-    source = request.form.get("new_source")
-    destination = request.form.get("new_destination", "")
-    if command == "delete":
-        if command and source:
-            next_index = len(data["tasks"]) + 1
-            data["tasks"][str(next_index)] = f"{command} {source}"
-    else:
-        if command and source and destination:
-            next_index = len(data["tasks"]) + 1
-            data["tasks"][str(next_index)] = f"{command} {source} {destination}"
-    save_json(data, "config/tasks.json")
+    try:
+        data = load_json("config/tasks.json")
+        command = request.form.get("new_command")
+        source = request.form.get("new_source")
+        destination = request.form.get("new_destination", "")
+        if command == "delete":
+            if command and source:
+                next_index = len(data["tasks"]) + 1
+                data["tasks"][str(next_index)] = f"{command} {source}"
+        else:
+            if command and source and destination:
+                next_index = len(data["tasks"]) + 1
+                data["tasks"][str(next_index)] = f"{command} {source} {destination}"
+        save_json(data, "config/tasks.json")
+        return jsonify({"status": "success", "message": "Task updated successfully."})
+    except Exception as e:
+        logger.error(f"Error updating tasks: {e}")
+        return jsonify(
+            {
+                "status": "error",
+                "message": "An unexpected error occurred while updating tasks.",
+            }
+        )
 
 
 def clear_input_directory():

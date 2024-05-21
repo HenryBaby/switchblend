@@ -14,16 +14,22 @@
 </div>
 
 <div class="container-fluid mt-4">
-    <form action="/devices" method="post">
+    <form action="/devices" method="post" novalidate>
         <div class="row mb-1 align-items-center justify-content-md-center">
             <div class="col-md-5">
                 <div class="mb-3">
                     <label for="device_name" class="form-label">Device Nickname</label>
                     <input type="text" class="form-control" id="device_name" name="device_name" required>
+                    <div class="invalid-feedback">
+                        Please provide a device nickname.
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label for="device_model" class="form-label">Device Model</label>
                     <input type="text" class="form-control" id="device_model" name="device_model" required>
+                    <div class="invalid-feedback">
+                        Please provide a device model.
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label for="hos_version" class="form-label">HOS Version</label>
@@ -38,10 +44,16 @@
                 <div class="mb-3">
                     <label for="ip" class="form-label">IP Address</label>
                     <input type="text" class="form-control" id="ip" name="ip" required>
+                    <div class="invalid-feedback">
+                        Please provide an IP address to your Switch for FTP access.
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label for="port" class="form-label">Port</label>
                     <input type="text" class="form-control" id="port" name="port" required>
+                    <div class="invalid-feedback">
+                        Please provide an FTP port.
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label for="username" class="form-label">Username</label>
@@ -59,6 +71,25 @@
             </div>
         </div>
     </form>
+
+    <script>
+        (function () {
+            'use strict'
+            var forms = document.querySelectorAll('.needs-validation')
+
+            Array.prototype.slice.call(forms)
+                .forEach(function (form) {
+                    form.addEventListener('submit', function (event) {
+                        if (!form.checkValidity()) {
+                            event.preventDefault()
+                            event.stopPropagation()
+                        }
+
+                        form.classList.add('was-validated')
+                    }, false)
+                })
+        })()
+    </script>
 
     <div class="row mb-4">
         <div class="col-md-12">
