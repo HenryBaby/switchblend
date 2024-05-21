@@ -94,6 +94,29 @@ def extract_7z(archive_file, destination_folder):
         logger.error(f"Failed to extract 7z file {archive_file}: {e}")
 
 
+def download_from_github_api(project_name, project_details):
+    url = project_details["url"]
+    try:
+        headers = {"Authorization": f"token {GITHUB_TOKEN}"} if USE_GITHUB_TOKEN else {}
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        releases = response.json()
+
+        if isinstance(releases, list) and releases:
+            latest_release = releases[0]
+            asset_index = 1 if project_name in dl_exceptions else 0
+
+            if len(latest_release["assets"]) > asset_index:
+                download_url = latest_release["assets"][asset_index][
+                    "browser_download_url"
+                ]
+                handle_download_tasks(download_url)
+    except requests.RequestException as e:
+        logger.error(f"Failed to process URL {url}: {e}")
+    except ValueError as e:
+        logger.error(f"Error parsing JSON response for {project_name}: {e}")
+
+
 def check_for_updates():
     data = load_json("config/sources.json")
     updates_available = False
