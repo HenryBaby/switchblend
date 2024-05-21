@@ -26,12 +26,20 @@
 
 <script>
     $(document).ready(function () {
+        $.fn.dataTable.ext.type.order['date-custom-pre'] = function (d) {
+            if (d === 'Not available') {
+                return -Infinity;
+            }
+            return new Date(d).getTime();
+        };
+
         $('#projectsTable').DataTable({
             stateSave: true,
             stateDuration: -1,
-            columns: [
-                { width: "70%" },
-                { width: "30%" }
+            columnDefs: [
+                { type: 'date-custom', targets: 1 },
+                { width: "70%", targets: 0 },
+                { width: "30%", targets: 1 }
             ]
         });
     });

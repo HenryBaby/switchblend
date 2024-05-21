@@ -1,6 +1,10 @@
 import os
 import zipfile
+import logging
 from datetime import datetime
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def package_contents():
@@ -9,7 +13,7 @@ def package_contents():
     output_zip_file = f"downloads/AIO-{timestamp}.zip"
 
     if not any(os.scandir(directory_to_zip)):
-        print(f"No files to package in {directory_to_zip}.")
+        logger.info(f"No files to package in {directory_to_zip}.")
         return
 
     if not os.path.exists("downloads/"):
@@ -21,6 +25,7 @@ def package_contents():
                 full_path = os.path.join(root, file)
                 relative_path = os.path.relpath(full_path, directory_to_zip)
                 zipf.write(full_path, arcname=relative_path)
+                logger.info(f"Added file {full_path} as {relative_path} to the zip.")
 
             for dir in dirs:
                 empty_dir_path = os.path.join(root, dir)
@@ -29,8 +34,9 @@ def package_contents():
                         empty_dir_path,
                         arcname=os.path.relpath(empty_dir_path, directory_to_zip),
                     )
+                    logger.info(f"Added empty directory {empty_dir_path} to the zip.")
 
-    print(f"Packaged into {output_zip_file} successfully.")
+    logger.info(f"Packaged into {output_zip_file} successfully.")
 
 
 if __name__ == "__main__":

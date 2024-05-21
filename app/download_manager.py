@@ -4,6 +4,7 @@ import shutil
 import zipfile
 import json
 import logging
+import py7zr
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -11,6 +12,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
+
+dl_exceptions = ["DBI", "Ultrahand Overlay"]
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 USE_GITHUB_TOKEN = bool(GITHUB_TOKEN)
@@ -38,17 +41,23 @@ def handle_download_tasks(download_url):
         os.makedirs(download_folder)
     destination = os.path.join(download_folder, filename)
     if download_file(download_url, destination):
-        if download_url.endswith(".zip"):
-            extract_folder = "downloads/output"
-            if not os.path.exists(extract_folder):
-                os.makedirs(extract_folder)
-            extract_zip(destination, extract_folder)
-        else:
-            output_folder = "downloads/output"
-            if not os.path.exists(output_folder):
-                os.makedirs(output_folder)
-            output_destination = os.path.join(output_folder, filename)
-            shutil.copyfile(destination, output_destination)
+        extract_folder = "downloads/output"
+        if not os.path.exists(extract_folder):
+            os.makedirs(extract_folder)
+        try:
+            if download_url.endswith(".zip"):
+                extract_zip(destination, extract_folder)
+            elif download_url.endswith(".7z"):
+                extract_7z(destination, extract_folder)
+            else:
+                output_folder = "downloads/output"
+                if not os.path.exists(output_folder):
+                    os.makedirs(output_folder)
+                output_destination = os.path.join(output_folder, filename)
+                shutil.copyfile(destination, output_destination)
+            logger.info(f"File handled successfully: {filename}")
+        except Exception as e:
+            logger.error(f"Failed to extract or copy file {filename}: {e}")
 
 
 def download_file(download_url, destination):
@@ -59,7 +68,7 @@ def download_file(download_url, destination):
         with open(destination, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
-        logger.info("File downloaded successfully.")
+        logger.info(f"File downloaded successfully: {destination}")
         return True
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to download file: {e}")
@@ -67,9 +76,22 @@ def download_file(download_url, destination):
 
 
 def extract_zip(zip_file, destination_folder):
-    with zipfile.ZipFile(zip_file, "r") as zip_ref:
-        zip_ref.extractall(destination_folder)
-    logger.info("Zip file extracted successfully.")
+    try:
+        with zipfile.ZipFile(zip_file, "r") as zip_ref:
+            zip_ref.extractall(destination_folder)
+        logger.info(f"Zip file extracted successfully: {zip_file}")
+    except Exception as e:
+        logger.error(f"Failed to extract zip file {zip_file}: {e}")
+
+
+def extract_7z(archive_file, destination_folder):
+    try:
+        logger.info(f"Starting extraction of 7z file: {archive_file}")
+        with py7zr.SevenZipFile(archive_file, mode="r") as z:
+            z.extractall(path=destination_folder)
+        logger.info(f"7z file extracted successfully: {archive_file}")
+    except Exception as e:
+        logger.error(f"Failed to extract 7z file {archive_file}: {e}")
 
 
 def check_for_updates():
@@ -90,7 +112,7 @@ def check_for_updates():
 
             if isinstance(releases, list) and releases:
                 latest_release = releases[0]
-                asset_index = 1 if project_name == "DBI" else 0
+                asset_index = 1 if project_name in dl_exceptions else 0
 
                 if len(latest_release["assets"]) > asset_index:
                     updated_at = latest_release["assets"][asset_index].get("updated_at")
@@ -114,25 +136,32 @@ def perform_download_tasks(data):
         url = project_details["url"]
 
         try:
-            headers = (
-                {"Authorization": f"token {GITHUB_TOKEN}"} if USE_GITHUB_TOKEN else {}
-            )
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            releases = response.json()
+            if url.endswith(".zip") or url.endswith(".7z"):
+                handle_download_tasks(url)
+            else:
+                headers = (
+                    {"Authorization": f"token {GITHUB_TOKEN}"}
+                    if USE_GITHUB_TOKEN
+                    else {}
+                )
+                response = requests.get(url, headers=headers)
+                response.raise_for_status()
+                releases = response.json()
 
-            if isinstance(releases, list) and releases:
-                latest_release = releases[0]
-                asset_index = 1 if project_name == "DBI" else 0
+                if isinstance(releases, list) and releases:
+                    latest_release = releases[0]
+                    asset_index = 1 if project_name in dl_exceptions else 0
 
-                if len(latest_release["assets"]) > asset_index:
-                    download_url = latest_release["assets"][asset_index][
-                        "browser_download_url"
-                    ]
-                    handle_download_tasks(download_url)
+                    if len(latest_release["assets"]) > asset_index:
+                        download_url = latest_release["assets"][asset_index][
+                            "browser_download_url"
+                        ]
+                        handle_download_tasks(download_url)
 
         except requests.RequestException as e:
             logger.error(f"Failed to process URL {url}: {e}")
+        except ValueError as e:
+            logger.error(f"Error parsing JSON response for {project_name}: {e}")
 
 
 def main(force_download=False):
