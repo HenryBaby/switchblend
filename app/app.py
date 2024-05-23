@@ -11,6 +11,9 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 from apscheduler.schedulers.background import BackgroundScheduler
 from threading import Thread
 from flask_cors import CORS
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,6 +21,9 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 scheduler = BackgroundScheduler()
 CORS(app)
+
+# Read the schedule interval from environment variable
+UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL", 60))
 
 
 def load_json(filename):
@@ -374,8 +380,8 @@ def scheduled_job():
 
 
 if __name__ == "__main__":
-    scheduler.add_job(scheduled_job, "interval", hours=1)
+    scheduler.add_job(scheduled_job, "interval", minutes=UPDATE_INTERVAL)
     scheduler.start()
-    logger.info("Scheduler started")
+    logger.info(f"Scheduler started with interval: {UPDATE_INTERVAL} minutes")
 
     app.run(debug=True, host="0.0.0.0", use_reloader=False)
