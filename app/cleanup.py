@@ -34,27 +34,47 @@ def delete_files(file_list_filename):
 def execute_command(command, path):
     logger.info(f"Executing command: {command}, path: {path}")
     base_path = "downloads/output/"
-    source_path = os.path.join(base_path, path.strip())
-
-    if command == "delete":
-        delete_path(source_path)
-    elif command in ["rename", "move", "copy"]:
-        try:
-            source, destination = map(str.strip, path.split(" ", 1))
-            source_path = os.path.join(base_path, source)
-            destination_path = os.path.join(base_path, destination)
-        except ValueError:
-            logger.error(f"Invalid path for {command}: {path}")
-            return
-
-        if command == "rename":
-            rename_path(source_path, destination_path)
-        elif command == "move":
-            move_path(source_path, destination_path)
-        elif command == "copy":
-            copy_path(source_path, destination_path)
+    if " " in path:
+        source, destination = map(str.strip, path.split(" ", 1))
+        source_path = os.path.join(base_path, source)
+        destination_path = os.path.join(base_path, destination)
     else:
-        logger.error(f"Unknown command '{command}'")
+        source_path = os.path.join(base_path, path)
+        destination_path = ""
+
+    logger.info(
+        f"Resolved source path: {source_path}, destination path: {destination_path}"
+    )
+
+    source_paths = glob.glob(source_path)
+    if not source_paths:
+        logger.error(f"Source path does not exist or no files match: '{source_path}'")
+        return
+
+    for src in source_paths:
+        logger.info(f"Processing source: {src}")
+        if destination_path:
+            dest = destination_path
+            if os.path.isdir(src) and not dest.endswith("/"):
+                dest = os.path.join(dest, os.path.basename(src))
+            elif not os.path.isdir(src) and os.path.isdir(dest):
+                dest = os.path.join(dest, os.path.basename(src))
+        else:
+            dest = destination_path
+
+        try:
+            if command == "delete":
+                delete_path(src)
+            elif command == "rename":
+                rename_path(src, dest)
+            elif command == "move":
+                move_path(src, dest)
+            elif command == "copy":
+                copy_path(src, dest)
+            else:
+                logger.error(f"Unknown command '{command}'")
+        except OSError as e:
+            logger.error(f"Error executing {command} on {path}: {str(e)}")
 
 
 def delete_path(path):
@@ -68,9 +88,6 @@ def delete_path(path):
 
 
 def rename_path(source, destination):
-    if os.path.exists(destination):
-        logger.error(f"Destination already exists: '{destination}'")
-        return
     if not os.path.exists(os.path.dirname(destination)):
         os.makedirs(os.path.dirname(destination), exist_ok=True)
     os.rename(source, destination)
@@ -78,22 +95,30 @@ def rename_path(source, destination):
 
 
 def move_path(source, destination):
-    if os.path.exists(destination):
-        logger.error(f"Destination already exists: '{destination}'")
-        return
-    if not os.path.exists(os.path.dirname(destination)):
+    if os.path.isdir(source):
+        if not os.path.exists(destination):
+            os.makedirs(destination, exist_ok=True)
+    elif not os.path.exists(os.path.dirname(destination)):
         os.makedirs(os.path.dirname(destination), exist_ok=True)
     shutil.move(source, destination)
     logger.info(f"Moved '{source}' to '{destination}'")
 
 
 def copy_path(source, destination):
-    if os.path.exists(destination):
-        logger.error(f"Destination already exists: '{destination}'")
-        return
-    if not os.path.exists(os.path.dirname(destination)):
-        os.makedirs(os.path.dirname(destination), exist_ok=True)
-    shutil.copy(source, destination)
+    if os.path.isdir(source):
+        if not os.path.exists(destination):
+            os.makedirs(destination, exist_ok=True)
+        for item in os.listdir(source):
+            s = os.path.join(source, item)
+            d = os.path.join(destination, item)
+            if os.path.isdir(s):
+                shutil.copytree(s, d, dirs_exist_ok=True)
+            else:
+                shutil.copy2(s, d)
+    else:
+        if not os.path.exists(os.path.dirname(destination)):
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+        shutil.copy2(source, destination)
     logger.info(f"Copied '{source}' to '{destination}'")
 
 
