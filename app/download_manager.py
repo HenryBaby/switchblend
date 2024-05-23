@@ -34,6 +34,20 @@ def save_json(data, filename):
         json.dump(data, file, indent=4)
 
 
+def clear_output_directory():
+    output_dir = "downloads/output"
+    for item in os.listdir(output_dir):
+        item_path = os.path.join(output_dir, item)
+        try:
+            if os.path.isfile(item_path) or os.path.islink(item_path):
+                os.remove(item_path)
+            elif os.path.isdir(item_path):
+                shutil.rmtree(item_path)
+            logger.info(f"Cleared {item_path}")
+        except Exception as e:
+            logger.error(f"Failed to delete {item_path}. Reason: {e}")
+
+
 def handle_download_tasks(download_url):
     filename = os.path.basename(download_url)
     download_folder = "downloads/input"
@@ -134,6 +148,10 @@ def check_for_updates():
         url = project_details["url"]
         last_updated = project_details.get("last_updated")
 
+        if url.endswith(".zip") or url.endswith(".7z"):
+            logger.info(f"Skipping direct file URL for {project_name}: {url}")
+            continue
+
         try:
             headers = (
                 {"Authorization": f"token {GITHUB_TOKEN}"} if USE_GITHUB_TOKEN else {}
@@ -175,6 +193,9 @@ def check_for_updates():
 
 
 def perform_download_tasks(data):
+    # Clear the output directory once before starting the download process
+    clear_output_directory()
+
     for project_name, project_details in data["GitHub"].items():
         url = project_details["url"]
 
