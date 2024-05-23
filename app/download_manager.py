@@ -100,7 +100,18 @@ def download_from_github_api(project_name, project_details):
         headers = {"Authorization": f"token {GITHUB_TOKEN}"} if USE_GITHUB_TOKEN else {}
         response = requests.get(url, headers=headers)
         response.raise_for_status()
-        releases = response.json()
+
+        if not response.content:
+            logger.error(f"Empty response for project {project_name}. URL: {url}")
+            return
+
+        try:
+            releases = response.json()
+        except json.JSONDecodeError as e:
+            logger.error(
+                f"Failed to parse JSON for {project_name}. URL: {url}, Error: {e}"
+            )
+            return
 
         if isinstance(releases, list) and releases:
             latest_release = releases[0]
@@ -113,8 +124,6 @@ def download_from_github_api(project_name, project_details):
                 handle_download_tasks(download_url)
     except requests.RequestException as e:
         logger.error(f"Failed to process URL {url}: {e}")
-    except ValueError as e:
-        logger.error(f"Error parsing JSON response for {project_name}: {e}")
 
 
 def check_for_updates():
@@ -131,7 +140,18 @@ def check_for_updates():
             )
             response = requests.get(url, headers=headers)
             response.raise_for_status()
-            releases = response.json()
+
+            if not response.content:
+                logger.error(f"Empty response for project {project_name}. URL: {url}")
+                continue
+
+            try:
+                releases = response.json()
+            except json.JSONDecodeError as e:
+                logger.error(
+                    f"Failed to parse JSON for {project_name}. URL: {url}, Error: {e}"
+                )
+                continue
 
             if isinstance(releases, list) and releases:
                 latest_release = releases[0]
@@ -162,29 +182,9 @@ def perform_download_tasks(data):
             if url.endswith(".zip") or url.endswith(".7z"):
                 handle_download_tasks(url)
             else:
-                headers = (
-                    {"Authorization": f"token {GITHUB_TOKEN}"}
-                    if USE_GITHUB_TOKEN
-                    else {}
-                )
-                response = requests.get(url, headers=headers)
-                response.raise_for_status()
-                releases = response.json()
-
-                if isinstance(releases, list) and releases:
-                    latest_release = releases[0]
-                    asset_index = 1 if project_name in dl_exceptions else 0
-
-                    if len(latest_release["assets"]) > asset_index:
-                        download_url = latest_release["assets"][asset_index][
-                            "browser_download_url"
-                        ]
-                        handle_download_tasks(download_url)
-
-        except requests.RequestException as e:
+                download_from_github_api(project_name, project_details)
+        except Exception as e:
             logger.error(f"Failed to process URL {url}: {e}")
-        except ValueError as e:
-            logger.error(f"Error parsing JSON response for {project_name}: {e}")
 
 
 def main(force_download=False):

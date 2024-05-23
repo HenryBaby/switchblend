@@ -367,7 +367,10 @@ def upload():
 
 
 def scheduled_job():
-    download_manager.check_and_update_sources()
+    try:
+        download_manager.check_and_update_sources()
+    except Exception as e:
+        logger.error(f"Error running scheduled job: {e}")
 
 
 if __name__ == "__main__":
