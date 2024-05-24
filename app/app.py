@@ -22,7 +22,7 @@ app = Flask(__name__)
 scheduler = BackgroundScheduler()
 CORS(app)
 
-# Read the schedule interval from environment variable
+
 UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL", 60))
 
 
@@ -64,6 +64,23 @@ def get_urls():
         }
         for key, project in data["GitHub"].items()
     ], data.get("last_checked", "Never")
+
+
+def get_directory_contents(path):
+    contents = []
+    for entry in os.scandir(path):
+        if entry.is_dir():
+            contents.append(
+                {
+                    "type": "folder",
+                    "name": f"{entry.name}/",
+                    "path": entry.path,
+                    "children": get_directory_contents(entry.path),
+                }
+            )
+        else:
+            contents.append({"type": "file", "name": entry.name, "path": entry.path})
+    return contents
 
 
 def get_tasks():
@@ -283,6 +300,19 @@ def download_source():
         return jsonify({"status": "error", "message": "Project not found"})
 
 
+@app.route("/fetch-directory-contents")
+def fetch_directory_contents():
+    base_path = "downloads/output"
+    try:
+        contents = get_directory_contents(base_path)
+        return jsonify({"status": "success", "contents": contents})
+    except Exception as e:
+        logger.error(f"Error fetching directory contents: {e}")
+        return jsonify(
+            {"status": "error", "message": "Failed to fetch directory contents"}
+        )
+
+
 @app.route("/run-cleanup")
 def run_cleanup():
     print("Running cleanup tasks")
@@ -354,7 +384,8 @@ def delete_device():
 @app.route("/upload", methods=["POST"])
 def upload():
     device_name = request.form.get("device_name")
-    devices = load_devices()
+    files = request.form.getlist("files[]")
+    devices = load_json("config/devices.json").get("devices", [])
     device = next((d for d in devices if d["name"] == device_name), None)
     if device:
         success, message = upload_manager.upload_to_device(
@@ -363,6 +394,7 @@ def upload():
             device["username"],
             device["password"],
             "downloads/output",
+            files,
         )
         if success:
             return jsonify({"status": "success", "message": message})

@@ -2,6 +2,47 @@
     .navbar-dark .navbar-nav .nav-link.btn {
         color: black !important;
     }
+
+    .modal-lg-custom {
+        max-width: 50%;
+    }
+
+    .file-browser .item {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        margin-bottom: 5px;
+    }
+
+    .file-browser input[type="checkbox"] {
+        margin-right: 10px;
+    }
+
+    .file-browser .folder-icon,
+    .file-browser .file-icon {
+        margin-right: 5px;
+    }
+
+    .file-browser .nested {
+        display: none;
+        margin-left: 20px;
+    }
+
+    .file-browser .expanded>.nested {
+        display: block;
+    }
+
+    .folder-name {
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+    }
+
+    .folder-label-container {
+        display: flex;
+        align-items: center;
+        width: 100%;
+    }
 </style>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -51,7 +92,7 @@
 </nav>
 
 <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg-custom">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="uploadModalLabel">Upload to Device</h5>
@@ -66,6 +107,12 @@
                             <option value="{{ device.name }}">{{ device.name }}</option>
                             {% endfor %}
                         </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="file_select" class="form-label">Select files/folders (/downloads/output/)</label>
+                        <div id="file_select" class="form-control file-browser"
+                            style="height: 350px; overflow-y: scroll;">
+                        </div>
                     </div>
                     <div id="uploadStatus" class="alert d-none" role="alert"></div>
                     <button type="submit" class="btn btn-primary">Upload</button>
@@ -82,6 +129,7 @@
         const cleanupButton = document.getElementById('cleanupButton');
         const uploadForm = document.getElementById('uploadForm');
         const uploadStatus = document.getElementById('uploadStatus');
+        const fileSelect = document.getElementById('file_select');
 
         checkbox.checked = localStorage.getItem('clearInputCheckbox') === 'true';
 
@@ -94,6 +142,16 @@
             const shouldClearInput = checkbox.checked;
             const cleanupUrl = shouldClearInput ? '/run-cleanup?clear=true' : '/run-cleanup';
             window.location.href = cleanupUrl;
+        });
+
+        // Load file browser contents when the modal is shown
+        $('#uploadModal').on('show.bs.modal', function () {
+            fetch('/fetch-directory-contents')
+                .then(response => response.json())
+                .then(data => {
+                    fileSelect.innerHTML = '';
+                    displayDirectoryContents(data.contents, fileSelect);
+                });
         });
 
         uploadForm.addEventListener('submit', function (event) {
@@ -121,4 +179,50 @@
                 });
         });
     });
+
+    function displayDirectoryContents(contents, container) {
+        contents.sort((a, b) => (a.type === 'folder' ? -1 : 1));
+        contents.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'item';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.name = 'files[]';
+            checkbox.value = item.path;
+            checkbox.id = item.path;
+            const icon = document.createElement('span');
+            icon.className = item.type === 'folder' ? 'folder-icon' : 'file-icon';
+            icon.innerHTML = item.type === 'folder' ? '📁' : '📄';
+            const label = document.createElement('label');
+            label.htmlFor = item.path;
+            label.innerText = item.name;
+            if (item.type === 'folder') {
+                label.className = 'folder-name';
+                label.addEventListener('click', function (e) {
+                    e.preventDefault(); // Prevent checkbox state change
+                    div.classList.toggle('expanded');
+                });
+                checkbox.addEventListener('change', function () {
+                    const nestedCheckboxes = div.querySelectorAll('.nested input[type="checkbox"]');
+                    nestedCheckboxes.forEach(nestedCheckbox => {
+                        nestedCheckbox.checked = checkbox.checked;
+                    });
+                });
+            }
+            const labelContainer = document.createElement('div');
+            labelContainer.className = 'folder-label-container';
+            labelContainer.appendChild(checkbox);
+            labelContainer.appendChild(icon);
+            labelContainer.appendChild(label);
+
+            div.appendChild(labelContainer);
+            container.appendChild(div);
+            if (item.type === 'folder' && item.children.length > 0) {
+                const nestedDiv = document.createElement('div');
+                nestedDiv.className = 'nested';
+                displayDirectoryContents(item.children, nestedDiv);
+                div.appendChild(nestedDiv);
+            }
+        });
+    }
 </script>
