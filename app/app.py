@@ -2,16 +2,17 @@ import os
 import json
 import requests
 import shutil
+import logging
+from threading import Thread
+from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask_cors import CORS
+from apscheduler.schedulers.background import BackgroundScheduler
+from dotenv import load_dotenv
+
 import download_manager
 import cleanup
 import package_manager
 import upload_manager
-import logging
-from flask import Flask, render_template, request, redirect, url_for, jsonify
-from apscheduler.schedulers.background import BackgroundScheduler
-from threading import Thread
-from flask_cors import CORS
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -21,7 +22,6 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 scheduler = BackgroundScheduler()
 CORS(app)
-
 
 UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL", 60))
 
@@ -415,5 +415,4 @@ if __name__ == "__main__":
     scheduler.add_job(scheduled_job, "interval", minutes=UPDATE_INTERVAL)
     scheduler.start()
     logger.info(f"Scheduler started with interval: {UPDATE_INTERVAL} minutes")
-
     app.run(debug=True, host="0.0.0.0", use_reloader=False)
