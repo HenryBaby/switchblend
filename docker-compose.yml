@@ -9,6 +9,7 @@ services:
     environment:
       - TZ=${TZ}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - UPDATE_INTERVAL=${UPDATE_INTERVAL}
     ports:
       - 5000:5000
     volumes:
