@@ -12,7 +12,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import download_manager
 import package_manager
 import upload_manager
-import cleanup
+import cleanup_manager
 
 load_dotenv()
 
