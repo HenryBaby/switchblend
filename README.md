@@ -98,6 +98,7 @@ You can run the program without a GitHub token, but I highly suggest you get one
     ```env
     TZ=your_timezone (i.e Europe/Stockholm)
     GITHUB_TOKEN=your_github_token
+    UPDATE_INTERVAL=interval_in_minutes
     ```
 
 3. Build and run the Docker container using Docker Compose:
@@ -115,22 +116,25 @@ Create a file named `docker-compose.yml` and another file named `.env` with the 
 
     ```
     volumes:
-    switchblend:
-        name: switchblend
+        switchblend_arch:
+            name: switchblend_arch # Optional
+        switchblend_conf:
+            name: switchblend_conf # Optional
 
     services:
-    switchblend:
-        image: henrybaby/switchblend:latest
-        container_name: switchblend
-        hostname: switchblend
-        environment:
-        - TZ=${TZ}
-        - GITHUB_TOKEN=${GITHUB_TOKEN}
-        ports:
-        - 5000:5000
-        volumes:
-        - switchblend:/downloads:rw
-        restart: unless-stopped
+        switchblend:
+            image: henrybaby/switchblend
+            container_name: switchblend
+            environment:
+            - TZ=${TZ}
+            - GITHUB_TOKEN=${GITHUB_TOKEN}
+            - UPDATE_INTERVAL=${UPDATE_INTERVAL}
+            ports:
+            - 5000:5000
+            volumes:
+            - switchblend_arch:/app/downloads:rw # Optional
+            - switchblend_conf:/app/config:rw # Optional
+            restart: unless-stopped
     ```
 
 * .env:
@@ -138,6 +142,7 @@ Create a file named `docker-compose.yml` and another file named `.env` with the 
     ```env
     TZ=your_timezone (i.e Europe/Stockholm)
     GITHUB_TOKEN=your_github_token
+    UPDATE_INTERVAL=interval_in_minutes
     ```
 
 ## Configuration
