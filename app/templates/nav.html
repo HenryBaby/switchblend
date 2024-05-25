@@ -187,7 +187,7 @@
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.name = 'files[]';
-            checkbox.value = item.path;
+            checkbox.value = item.path.replace('downloads/output/', '');
             checkbox.id = item.path;
             const icon = document.createElement('span');
             icon.className = item.type === 'folder' ? 'folder-icon' : 'file-icon';
@@ -198,7 +198,7 @@
             if (item.type === 'folder') {
                 label.className = 'folder-name';
                 label.addEventListener('click', function (e) {
-                    e.preventDefault(); // Prevent checkbox state change
+                    e.preventDefault();
                     div.classList.toggle('expanded');
                 });
                 checkbox.addEventListener('change', function () {
@@ -224,4 +224,5 @@
             }
         });
     }
+
 </script>

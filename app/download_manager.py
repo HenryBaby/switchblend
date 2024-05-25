@@ -193,7 +193,6 @@ def check_for_updates():
 
 
 def perform_download_tasks(data):
-    # Clear the output directory once before starting the download process
     clear_output_directory()
 
     for project_name, project_details in data["GitHub"].items():
