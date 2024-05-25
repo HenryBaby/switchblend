@@ -88,6 +88,9 @@ def delete_path(path):
 
 
 def rename_path(source, destination):
+    if os.path.exists(destination):
+        logger.error(f"Destination already exists: '{destination}'")
+        return
     if not os.path.exists(os.path.dirname(destination)):
         os.makedirs(os.path.dirname(destination), exist_ok=True)
     os.rename(source, destination)
@@ -95,30 +98,22 @@ def rename_path(source, destination):
 
 
 def move_path(source, destination):
-    if os.path.isdir(source):
-        if not os.path.exists(destination):
-            os.makedirs(destination, exist_ok=True)
-    elif not os.path.exists(os.path.dirname(destination)):
+    if os.path.exists(destination):
+        logger.error(f"Destination already exists: '{destination}'")
+        return
+    if not os.path.exists(os.path.dirname(destination)):
         os.makedirs(os.path.dirname(destination), exist_ok=True)
     shutil.move(source, destination)
     logger.info(f"Moved '{source}' to '{destination}'")
 
 
 def copy_path(source, destination):
-    if os.path.isdir(source):
-        if not os.path.exists(destination):
-            os.makedirs(destination, exist_ok=True)
-        for item in os.listdir(source):
-            s = os.path.join(source, item)
-            d = os.path.join(destination, item)
-            if os.path.isdir(s):
-                shutil.copytree(s, d, dirs_exist_ok=True)
-            else:
-                shutil.copy2(s, d)
-    else:
-        if not os.path.exists(os.path.dirname(destination)):
-            os.makedirs(os.path.dirname(destination), exist_ok=True)
-        shutil.copy2(source, destination)
+    if os.path.exists(destination):
+        logger.error(f"Destination already exists: '{destination}'")
+        return
+    if not os.path.exists(os.path.dirname(destination)):
+        os.makedirs(os.path.dirname(destination), exist_ok=True)
+    shutil.copy(source, destination)
     logger.info(f"Copied '{source}' to '{destination}'")
 
 
