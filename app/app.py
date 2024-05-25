@@ -318,7 +318,7 @@ def fetch_directory_contents():
 @app.route("/run-cleanup")
 def run_cleanup():
     print("Running cleanup tasks")
-    run_background_task(cleanup.delete_files, "config/tasks.json")
+    run_background_task(cleanup_manager.delete_files, "config/tasks.json")
     should_clear_input = request.args.get("clear") == "true"
     if should_clear_input:
         clear_input_directory()
