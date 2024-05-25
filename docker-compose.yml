@@ -1,6 +1,8 @@
 volumes:
-  switchblend:
-    name: switchblend
+  switchblend_arch:
+    name: switchblend_arch # Optional
+  switchblend_conf:
+    name: switchblend_conf # Optional
 
 services:
   switchblend:
@@ -13,5 +15,6 @@ services:
     ports:
       - 5000:5000
     volumes:
-      - switchblend:/app/downloads:rw
+      - switchblend_arch:/app/downloads:rw # Optional
+      - switchblend_conf:/app/config:rw # Optional
     restart: unless-stopped
