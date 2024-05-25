@@ -1,6 +1,7 @@
 import os
 import ftplib
 import logging
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,10 +35,40 @@ def upload_to_device(ip, port, username, password, local_directory, files):
         return False, f"Unexpected error: {str(e)}"
 
 
-def upload_file(ftp, local_path, remote_path):
-    with open(local_path, "rb") as f:
-        ftp.storbinary(f"STOR {remote_path}", f)
-        logger.info(f"Uploaded {remote_path}")
+def upload_file(ftp, local_path, remote_path, retries=3):
+    attempt = 0
+    while attempt < retries:
+        try:
+            delete_remote_file(ftp, remote_path)
+            with open(local_path, "rb") as f:
+                ftp.storbinary(f"STOR {remote_path}", f)
+                logger.info(f"Uploaded {remote_path}")
+                return True
+        except ftplib.error_perm as e:
+            if "450" in str(e):
+                attempt += 1
+                logger.warning(f"Retrying upload for {remote_path}, attempt {attempt}")
+                time.sleep(2)
+            else:
+                logger.error(f"FTP error: {str(e)}")
+                return False
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}")
+            return False
+    logger.error(f"Failed to upload {remote_path} after {retries} attempts")
+    return False
+
+
+def delete_remote_file(ftp, remote_path):
+    try:
+        ftp.delete(remote_path)
+        logger.info(f"Deleted remote file {remote_path}")
+    except ftplib.error_perm as e:
+        if "550" in str(e):
+            logger.info(f"Remote file {remote_path} does not exist, no need to delete.")
+        else:
+            logger.error(f"Error deleting remote file {remote_path}: {str(e)}")
+            raise
 
 
 def upload_directory(ftp, local_directory, remote_directory):
@@ -56,4 +87,6 @@ def upload_directory(ftp, local_directory, remote_directory):
             local_path = os.path.join(root, filename)
             rel_path = os.path.relpath(local_path, local_directory)
             remote_path = os.path.join(remote_directory, rel_path)
-            upload_file(ftp, local_path, remote_path)
+            success = upload_file(ftp, local_path, remote_path)
+            if not success:
+                logger.error(f"Failed to upload {local_path}")

@@ -25,7 +25,12 @@
             {% endfor %}
         </tbody>
     </table>
-    <p>Last update check: {{ last_checked }}</p>
+    <p><b>Last update check: {{ last_checked }}</b></p>
+    {% if next_run_time %}
+    <p><b>Next check: {{ next_run_time.strftime('%Y-%m-%d %H:%M:%S') }}</b></p>
+    {% else %}
+    <p><b>Next check: Not scheduled</b></p>
+    {% endif %}
 </div>
 
 <script>

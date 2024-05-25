@@ -3,6 +3,7 @@ import json
 import requests
 import shutil
 import logging
+from datetime import datetime
 from dotenv import load_dotenv
 from threading import Thread
 from flask_cors import CORS
@@ -198,10 +199,17 @@ def reset_updated_fields():
 def index():
     projects, last_checked = get_urls()
     devices = get_devices()
+    next_run_time = None
+
+    job = scheduler.get_jobs()[0] if scheduler.get_jobs() else None
+    if job:
+        next_run_time = job.next_run_time
+
     return render_template(
         "index.html",
         projects=projects,
         last_checked=last_checked,
+        next_run_time=next_run_time,
         current_page="home",
         devices=devices,
     )
