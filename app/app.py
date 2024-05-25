@@ -3,16 +3,16 @@ import json
 import requests
 import shutil
 import logging
-from threading import Thread
-from flask import Flask, render_template, request, redirect, url_for, jsonify
-from flask_cors import CORS
-from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
+from threading import Thread
+from flask_cors import CORS
+from flask import Flask, render_template, request, redirect, url_for, jsonify
+from apscheduler.schedulers.background import BackgroundScheduler
 
 import download_manager
-import cleanup
 import package_manager
 import upload_manager
+import cleanup
 
 load_dotenv()
 
@@ -20,8 +20,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-scheduler = BackgroundScheduler()
+
 CORS(app)
+scheduler = BackgroundScheduler()
+
 
 UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL", 60))
 
