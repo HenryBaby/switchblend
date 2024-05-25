@@ -417,4 +417,5 @@ if __name__ == "__main__":
     scheduler.add_job(scheduled_job, "interval", minutes=UPDATE_INTERVAL)
     scheduler.start()
     logger.info(f"Scheduler started with interval: {UPDATE_INTERVAL} minutes")
+
     app.run(debug=True, host="0.0.0.0", use_reloader=False)
