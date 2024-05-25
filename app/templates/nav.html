@@ -144,7 +144,6 @@
             window.location.href = cleanupUrl;
         });
 
-        // Load file browser contents when the modal is shown
         $('#uploadModal').on('show.bs.modal', function () {
             fetch('/fetch-directory-contents')
                 .then(response => response.json())
