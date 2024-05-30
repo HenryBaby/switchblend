@@ -156,6 +156,12 @@
         uploadForm.addEventListener('submit', function (event) {
             event.preventDefault();
             const formData = new FormData(uploadForm);
+
+            const checkboxes = document.querySelectorAll('#file_select input[type="checkbox"]:checked');
+            checkboxes.forEach(checkbox => {
+                formData.append('files[]', checkbox.value);
+            });
+
             fetch(uploadForm.action, {
                 method: uploadForm.method,
                 body: formData,
