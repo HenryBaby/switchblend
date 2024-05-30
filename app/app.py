@@ -395,6 +395,9 @@ def delete_device():
 def upload():
     device_name = request.form.get("device_name")
     files = request.form.getlist("files[]")
+
+    logger.info(f"Selected files: {files}")
+
     devices = load_json("config/devices.json").get("devices", [])
     device = next((d for d in devices if d["name"] == device_name), None)
     if device:
