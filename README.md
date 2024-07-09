@@ -1,3 +1,5 @@
+# NOTE: This is currently kind of buggy, so don't rely on it until I've had some time to fix the major flaws.
+
 # switchblend
 
 ![Docker Image Version](https://img.shields.io/docker/v/henrybaby/switchblend?arch=arm64)
