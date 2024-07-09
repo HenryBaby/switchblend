@@ -1,4 +1,5 @@
-# NOTE: This is currently kind of buggy, so don't rely on it until I've had some time to fix the major flaws.
+[!IMPORTANT]
+This is currently kind of buggy, so don't rely on it until I've had some time to fix the major flaws.
 
 # switchblend
 
