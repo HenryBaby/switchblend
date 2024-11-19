@@ -1,5 +1,5 @@
 > [!IMPORTANT]
-> This is currently kind of buggy, so don't rely on it until I've had some time to fix the major flaws.
+> This is now in a better place, amongst the trash code pile. I don't have the time nor the effort to clean this up right now. Maybe some day.
 
 # switchblend
 
