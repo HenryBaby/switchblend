@@ -1,6 +1,3 @@
-> [!IMPORTANT]
-> This is now in a better place, amongst the trash code pile. I don't have the time nor the effort to clean this up right now. Maybe some day.
-
 # switchblend
 
 ![Docker Image Version](https://img.shields.io/docker/v/henrybaby/switchblend?arch=arm64)
