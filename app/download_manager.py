@@ -36,6 +36,9 @@ def save_json(data, filename):
 
 def clear_output_directory():
     output_dir = "downloads/output"
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+        return
     for item in os.listdir(output_dir):
         item_path = os.path.join(output_dir, item)
         try:

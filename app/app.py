@@ -70,6 +70,8 @@ def get_urls():
 
 
 def get_directory_contents(path):
+    if not os.path.isdir(path):
+        return []
     contents = []
     for entry in os.scandir(path):
         if entry.is_dir():
@@ -178,6 +180,9 @@ def update_tasks():
 
 def clear_input_directory():
     input_dir = "downloads/input/"
+    if not os.path.isdir(input_dir):
+        os.makedirs(input_dir, exist_ok=True)
+        return
     for item in os.listdir(input_dir):
         item_path = os.path.join(input_dir, item)
         if os.path.isfile(item_path):

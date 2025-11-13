@@ -12,12 +12,15 @@ def package_contents():
     timestamp = datetime.now().strftime("%Y%m%d")
     output_zip_file = f"downloads/AIO-{timestamp}.zip"
 
+    if not os.path.isdir(directory_to_zip):
+        logger.info(f"No files to package because {directory_to_zip} does not exist.")
+        return
+
     if not any(os.scandir(directory_to_zip)):
         logger.info(f"No files to package in {directory_to_zip}.")
         return
 
-    if not os.path.exists("downloads/"):
-        os.makedirs("downloads/")
+    os.makedirs("downloads/", exist_ok=True)
 
     with zipfile.ZipFile(output_zip_file, "w", zipfile.ZIP_DEFLATED) as zipf:
         for root, dirs, files in os.walk(directory_to_zip):

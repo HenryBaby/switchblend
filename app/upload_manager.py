@@ -2,6 +2,7 @@ import os
 import ftplib
 import logging
 import time
+import posixpath
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -77,16 +78,12 @@ def upload_directory(ftp, local_directory, remote_directory):
     except ftplib.error_perm as e:
         if not e.args[0].startswith("550"):
             raise
-    for root, dirs, files in os.walk(local_directory):
-        for dirname in dirs:
-            local_path = os.path.join(root, dirname)
-            rel_path = os.path.relpath(local_path, local_directory)
-            remote_path = os.path.join(remote_directory, rel_path)
+    for entry in os.listdir(local_directory):
+        local_path = os.path.join(local_directory, entry)
+        remote_path = posixpath.join(remote_directory, entry)
+        if os.path.isdir(local_path):
             upload_directory(ftp, local_path, remote_path)
-        for filename in files:
-            local_path = os.path.join(root, filename)
-            rel_path = os.path.relpath(local_path, local_directory)
-            remote_path = os.path.join(remote_directory, rel_path)
+        else:
             success = upload_file(ftp, local_path, remote_path)
             if not success:
                 logger.error(f"Failed to upload {local_path}")
