@@ -193,13 +193,6 @@ def clear_input_directory():
             print(f"Deleted directory and its contents: {item_path}")
 
 
-def reset_updated_fields():
-    data = load_json("config/sources.json")
-    for project in data["GitHub"].values():
-        project["updated"] = False
-    save_json(data, "config/sources.json")
-
-
 @app.route("/")
 def index():
     projects, last_checked = get_urls()
@@ -278,11 +271,7 @@ def delete_task():
 
 @app.route("/run-downloads")
 def run_downloads():
-    def download_and_reset():
-        download_manager.main(True)
-        reset_updated_fields()
-
-    run_background_task(download_and_reset)
+    run_background_task(download_manager.main, True)
     referer = request.headers.get("Referer")
     return redirect(referer if referer else url_for("index"))
 
@@ -297,15 +286,25 @@ def download_source():
         url = project["url"]
         try:
             if url.endswith(".zip") or url.endswith(".7z"):
-                download_manager.handle_download_tasks(url)
+                success = download_manager.handle_download_tasks(url)
             else:
-                download_manager.download_from_github_api(project_name, project)
-            return jsonify(
-                {
-                    "status": "success",
-                    "message": f"Downloaded {project_name} successfully.",
-                }
-            )
+                success = download_manager.download_from_github_api(project_name, project)
+            if success:
+                download_manager.mark_download_complete(project)
+                save_json(data, "config/sources.json")
+                return jsonify(
+                    {
+                        "status": "success",
+                        "message": f"Downloaded {project_name} successfully.",
+                    }
+                )
+            else:
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": f"Failed to download {project_name}.",
+                    }
+                )
         except Exception as e:
             logger.error(f"Error downloading source {project_name}: {e}")
             return jsonify(

@@ -34,6 +34,16 @@ def save_json(data, filename):
         json.dump(data, file, indent=4)
 
 
+def mark_download_complete(project_details):
+    release_timestamp = project_details.get("last_updated")
+    if release_timestamp:
+        project_details["downloaded_release"] = release_timestamp
+    else:
+        project_details["downloaded_release"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    project_details["updated"] = False
+    project_details.pop("highlight", None)
+
+
 def clear_output_directory():
     output_dir = "downloads/output"
     if not os.path.isdir(output_dir):
@@ -73,8 +83,10 @@ def handle_download_tasks(download_url):
                 output_destination = os.path.join(output_folder, filename)
                 shutil.copyfile(destination, output_destination)
             logger.info(f"File handled successfully: {filename}")
+            return True
         except Exception as e:
             logger.error(f"Failed to extract or copy file {filename}: {e}")
+    return False
 
 
 def download_file(download_url, destination):
@@ -120,7 +132,7 @@ def download_from_github_api(project_name, project_details):
 
         if not response.content:
             logger.error(f"Empty response for project {project_name}. URL: {url}")
-            return
+            return False
 
         try:
             releases = response.json()
@@ -128,7 +140,7 @@ def download_from_github_api(project_name, project_details):
             logger.error(
                 f"Failed to parse JSON for {project_name}. URL: {url}, Error: {e}"
             )
-            return
+            return False
 
         if isinstance(releases, list) and releases:
             latest_release = releases[0]
@@ -138,9 +150,10 @@ def download_from_github_api(project_name, project_details):
                 download_url = latest_release["assets"][asset_index][
                     "browser_download_url"
                 ]
-                handle_download_tasks(download_url)
+                return handle_download_tasks(download_url)
     except requests.RequestException as e:
         logger.error(f"Failed to process URL {url}: {e}")
+    return False
 
 
 def check_for_updates():
@@ -150,9 +163,11 @@ def check_for_updates():
     for project_name, project_details in data["GitHub"].items():
         url = project_details["url"]
         last_updated = project_details.get("last_updated")
+        needs_download = project_details.get("updated", False)
 
         if url.endswith(".zip") or url.endswith(".7z"):
             logger.info(f"Skipping direct file URL for {project_name}: {url}")
+            updates_available = updates_available or needs_download
             continue
 
         try:
@@ -184,13 +199,18 @@ def check_for_updates():
                         updated_at = updated_at.replace("T", " ").replace("Z", "")
                         if not last_updated or updated_at > last_updated:
                             project_details["last_updated"] = updated_at
-                            project_details["updated"] = True
-                            updates_available = True
-                        else:
-                            project_details["updated"] = False
+
+                        needs_download = (
+                            project_details.get("downloaded_release")
+                            != project_details.get("last_updated")
+                        )
+                        project_details["updated"] = needs_download
+                        updates_available = updates_available or needs_download
 
         except requests.RequestException as e:
             logger.error(f"Failed to check updates for {project_name}: {e}")
+
+        updates_available = updates_available or project_details.get("updated", False)
 
     return updates_available, data
 
@@ -201,11 +221,16 @@ def perform_download_tasks(data):
     for project_name, project_details in data["GitHub"].items():
         url = project_details["url"]
 
+        success = False
         try:
             if url.endswith(".zip") or url.endswith(".7z"):
-                handle_download_tasks(url)
+                success = handle_download_tasks(url)
             else:
-                download_from_github_api(project_name, project_details)
+                success = download_from_github_api(project_name, project_details)
+            if success:
+                mark_download_complete(project_details)
+            else:
+                logger.error(f"Failed to process URL {url}")
         except Exception as e:
             logger.error(f"Failed to process URL {url}: {e}")
 
@@ -234,15 +259,12 @@ def check_and_update_sources():
 
     if updates_available:
         logger.info("Updates found. Updating sources.json...")
-        for project_name, project_details in data["GitHub"].items():
-            if project_details.get("updated"):
-                project_details["highlight"] = True
-            else:
-                project_details.pop("highlight", None)
-        save_json(data, "config/sources.json")
     else:
         logger.info("No updates found.")
-        for project_details in data["GitHub"].values():
+    for project_details in data["GitHub"].values():
+        if project_details.get("updated"):
+            project_details["highlight"] = True
+        else:
             project_details.pop("highlight", None)
 
     save_json(data, "config/sources.json")
