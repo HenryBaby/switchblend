@@ -158,6 +158,12 @@
             const formData = new FormData(uploadForm);
 
             const checkboxes = document.querySelectorAll('#file_select input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                uploadStatus.className = 'alert alert-danger';
+                uploadStatus.innerText = 'Select at least one file or folder before uploading.';
+                uploadStatus.classList.remove('d-none');
+                return;
+            }
             checkboxes.forEach(checkbox => {
                 formData.append('files[]', checkbox.value);
             });
@@ -206,12 +212,6 @@
                 label.addEventListener('click', function (e) {
                     e.preventDefault();
                     div.classList.toggle('expanded');
-                });
-                checkbox.addEventListener('change', function () {
-                    const nestedCheckboxes = div.querySelectorAll('.nested input[type="checkbox"]');
-                    nestedCheckboxes.forEach(nestedCheckbox => {
-                        nestedCheckbox.checked = checkbox.checked;
-                    });
                 });
             }
             const labelContainer = document.createElement('div');

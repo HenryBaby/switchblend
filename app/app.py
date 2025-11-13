@@ -287,10 +287,13 @@ def download_source():
         try:
             if url.endswith(".zip") or url.endswith(".7z"):
                 success = download_manager.handle_download_tasks(url)
+                release_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             else:
-                success = download_manager.download_from_github_api(project_name, project)
+                success, release_timestamp = download_manager.download_from_github_api(
+                    project_name, project
+                )
             if success:
-                download_manager.mark_download_complete(project)
+                download_manager.mark_download_complete(project, release_timestamp)
                 save_json(data, "config/sources.json")
                 return jsonify(
                     {
@@ -401,6 +404,8 @@ def upload():
     files = request.form.getlist("files[]")
 
     logger.info(f"Selected files: {files}")
+    if not files:
+        return jsonify({"status": "error", "message": "No files selected for upload."})
 
     devices = load_json("config/devices.json").get("devices", [])
     device = next((d for d in devices if d["name"] == device_name), None)

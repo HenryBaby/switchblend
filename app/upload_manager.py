@@ -40,6 +40,7 @@ def upload_file(ftp, local_path, remote_path, retries=3):
     attempt = 0
     while attempt < retries:
         try:
+            ensure_remote_parent_directories(ftp, remote_path)
             delete_remote_file(ftp, remote_path)
             with open(local_path, "rb") as f:
                 ftp.storbinary(f"STOR {remote_path}", f)
@@ -70,6 +71,25 @@ def delete_remote_file(ftp, remote_path):
         else:
             logger.error(f"Error deleting remote file {remote_path}: {str(e)}")
             raise
+
+
+def ensure_remote_parent_directories(ftp, remote_path):
+    directory = posixpath.dirname(remote_path)
+    if not directory:
+        return
+    parts = directory.split("/")
+    current_path = ""
+    for part in parts:
+        if not part:
+            continue
+        current_path = f"{current_path}/{part}" if current_path else part
+        try:
+            ftp.mkd(current_path)
+            logger.info(f"Created remote directory {current_path}")
+        except ftplib.error_perm as e:
+            if not e.args[0].startswith("550"):
+                logger.error(f"Error creating remote directory {current_path}: {str(e)}")
+                raise
 
 
 def upload_directory(ftp, local_directory, remote_directory):
