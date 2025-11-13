@@ -113,8 +113,12 @@ def copy_path(source, destination):
         return
     if not os.path.exists(os.path.dirname(destination)):
         os.makedirs(os.path.dirname(destination), exist_ok=True)
-    shutil.copy(source, destination)
-    logger.info(f"Copied '{source}' to '{destination}'")
+    if os.path.isdir(source):
+        shutil.copytree(source, destination)
+        logger.info(f"Copied directory '{source}' to '{destination}'")
+    else:
+        shutil.copy(source, destination)
+        logger.info(f"Copied file '{source}' to '{destination}'")
 
 
 if __name__ == "__main__":
