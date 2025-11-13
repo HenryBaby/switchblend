@@ -1,8 +1,8 @@
-import os
 import ftplib
 import logging
-import time
+import os
 import posixpath
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

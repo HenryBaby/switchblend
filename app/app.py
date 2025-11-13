@@ -1,19 +1,20 @@
-import os
 import json
-import requests
-import shutil
 import logging
+import os
+import shutil
 from datetime import datetime
-from dotenv import load_dotenv
 from threading import Thread
-from flask_cors import CORS
-from flask import Flask, render_template, request, redirect, url_for, jsonify
-from apscheduler.schedulers.background import BackgroundScheduler
 
+import requests
+from apscheduler.schedulers.background import BackgroundScheduler
+from dotenv import load_dotenv
+from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask_cors import CORS
+
+import cleanup_manager
 import download_manager
 import package_manager
 import upload_manager
-import cleanup_manager
 
 load_dotenv()
 
