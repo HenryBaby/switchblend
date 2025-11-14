@@ -197,15 +197,16 @@
             const div = document.createElement('div');
             div.className = 'item';
             const checkbox = document.createElement('input');
+            const checkboxId = `file-${item.path.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
             checkbox.type = 'checkbox';
             checkbox.name = 'files[]';
-            checkbox.value = item.path.replace('downloads/output/', '');
-            checkbox.id = item.path;
+            checkbox.value = item.path;
+            checkbox.id = checkboxId;
             const icon = document.createElement('span');
             icon.className = item.type === 'folder' ? 'folder-icon' : 'file-icon';
             icon.innerHTML = item.type === 'folder' ? '📁' : '📄';
             const label = document.createElement('label');
-            label.htmlFor = item.path;
+            label.htmlFor = checkboxId;
             label.innerText = item.name;
             if (item.type === 'folder') {
                 label.className = 'folder-name';

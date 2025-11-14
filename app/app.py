@@ -1,8 +1,8 @@
-import json
 import logging
 import os
 import shutil
 from datetime import datetime
+from pathlib import Path
 from threading import Thread
 
 import requests
@@ -16,7 +16,15 @@ import download_manager
 import package_manager
 import upload_manager
 
-load_dotenv()
+from storage import (
+    CONFIG_DIR,
+    INPUT_DIR,
+    OUTPUT_DIR,
+    config_lock,
+    load_json,
+    save_json,
+    update_json,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,26 +34,24 @@ app = Flask(__name__)
 CORS(app)
 scheduler = BackgroundScheduler()
 
+SOURCES_PATH = CONFIG_DIR / "sources.json"
+TASKS_PATH = CONFIG_DIR / "tasks.json"
+DEVICES_PATH = CONFIG_DIR / "devices.json"
 
+load_dotenv()
 UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL", 60))
 
 
-def load_json(filename):
-    with open(filename, "r") as file:
-        return json.load(file)
-
-
-def save_json(data, filename):
-    with open(filename, "w") as file:
-        json.dump(data, file, indent=4)
-
-
 def load_devices():
-    return load_json("config/devices.json").get("devices", [])
+    if not DEVICES_PATH.exists():
+        return []
+    with config_lock:
+        return load_json(DEVICES_PATH).get("devices", [])
 
 
 def save_devices(devices):
-    save_json({"devices": devices}, "config/devices.json")
+    with config_lock:
+        save_json({"devices": devices}, DEVICES_PATH)
 
 
 def get_devices():
@@ -58,7 +64,8 @@ def run_background_task(func, *args):
 
 
 def get_urls():
-    data = load_json("config/sources.json")
+    with config_lock:
+        data = load_json(SOURCES_PATH)
     return [
         {
             "name": key,
@@ -70,27 +77,33 @@ def get_urls():
     ], data.get("last_checked", "Never")
 
 
-def get_directory_contents(path):
-    if not os.path.isdir(path):
+def get_directory_contents(path: Path, base_path: Path | None = None):
+    path = Path(path)
+    if not path.is_dir():
         return []
+    base_path = base_path or path
     contents = []
-    for entry in os.scandir(path):
+    for entry in sorted(path.iterdir(), key=lambda p: (p.is_file(), p.name.lower())):
+        relative_path = entry.relative_to(base_path)
         if entry.is_dir():
             contents.append(
                 {
                     "type": "folder",
                     "name": f"{entry.name}/",
-                    "path": entry.path,
-                    "children": get_directory_contents(entry.path),
+                    "path": relative_path.as_posix(),
+                    "children": get_directory_contents(entry, base_path),
                 }
             )
         else:
-            contents.append({"type": "file", "name": entry.name, "path": entry.path})
+            contents.append(
+                {"type": "file", "name": entry.name, "path": relative_path.as_posix()}
+            )
     return contents
 
 
 def get_tasks():
-    data = load_json("config/tasks.json")
+    with config_lock:
+        data = load_json(TASKS_PATH)
     tasks = []
     for key, task_string in sorted(data["tasks"].items(), key=lambda x: int(x[0])):
         command, path = task_string.split(maxsplit=1)
@@ -101,7 +114,6 @@ def get_tasks():
 
 def update_urls():
     try:
-        data = load_json("config/sources.json")
         new_name = request.form.get("new_name")
         new_url = request.form.get("new_url")
 
@@ -136,8 +148,10 @@ def update_urls():
                         }
                     )
 
-            data["GitHub"][new_name] = new_entry
-            save_json(data, "config/sources.json")
+            def mutator(data):
+                data["GitHub"][new_name] = new_entry
+
+            update_json(SOURCES_PATH, mutator)
             return jsonify(
                 {"status": "success", "message": "URL updated successfully."}
             )
@@ -155,19 +169,36 @@ def update_urls():
 
 def update_tasks():
     try:
-        data = load_json("config/tasks.json")
         command = request.form.get("new_command")
         source = request.form.get("new_source")
         destination = request.form.get("new_destination", "")
         if command == "delete":
-            if command and source:
-                next_index = len(data["tasks"]) + 1
-                data["tasks"][str(next_index)] = f"{command} {source}"
+            if not (command and source):
+                return jsonify(
+                    {"status": "error", "message": "Command and source are required."}
+                )
+
+            def mutator(data):
+                next_index = len(data.get("tasks", {})) + 1
+                data.setdefault("tasks", {})[str(next_index)] = f"{command} {source}"
+
+            update_json(TASKS_PATH, mutator)
         else:
             if command and source and destination:
-                next_index = len(data["tasks"]) + 1
-                data["tasks"][str(next_index)] = f"{command} {source} {destination}"
-        save_json(data, "config/tasks.json")
+                def mutator(data):
+                    next_index = len(data.get("tasks", {})) + 1
+                    data.setdefault("tasks", {})[
+                        str(next_index)
+                    ] = f"{command} {source} {destination}"
+
+                update_json(TASKS_PATH, mutator)
+            else:
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": "Command, source, and destination are required.",
+                    }
+                )
         return jsonify({"status": "success", "message": "Task updated successfully."})
     except Exception as e:
         logger.error(f"Error updating tasks: {e}")
@@ -180,18 +211,36 @@ def update_tasks():
 
 
 def clear_input_directory():
-    input_dir = "downloads/input/"
-    if not os.path.isdir(input_dir):
-        os.makedirs(input_dir, exist_ok=True)
-        return
-    for item in os.listdir(input_dir):
-        item_path = os.path.join(input_dir, item)
-        if os.path.isfile(item_path):
-            os.remove(item_path)
-            print(f"Deleted file: {item_path}")
-        elif os.path.isdir(item_path):
-            shutil.rmtree(item_path)
-            print(f"Deleted directory and its contents: {item_path}")
+    input_dir = INPUT_DIR
+    input_dir.mkdir(parents=True, exist_ok=True)
+    for item in input_dir.iterdir():
+        if item.is_file() or item.is_symlink():
+            item.unlink()
+            logger.info(f"Deleted file: {item}")
+        elif item.is_dir():
+            shutil.rmtree(item)
+            logger.info(f"Deleted directory and its contents: {item}")
+
+
+def validate_requested_files(files):
+    base_path = OUTPUT_DIR.resolve()
+    sanitized = []
+
+    for requested_path in files:
+        if not requested_path:
+            continue
+        relative = requested_path.strip().lstrip("/\\")
+        candidate = (OUTPUT_DIR / relative).resolve()
+        if not candidate.exists():
+            raise ValueError(f"Selected path does not exist: {relative}")
+        if not candidate.is_relative_to(base_path):
+            raise ValueError("Invalid path selected.")
+        sanitized.append(candidate.relative_to(base_path).as_posix())
+
+    if not sanitized:
+        raise ValueError("Select at least one valid file or folder before uploading.")
+
+    return sanitized
 
 
 @app.route("/")
@@ -243,30 +292,28 @@ def manage_tasks():
 @app.route("/delete-url", methods=["POST"])
 def delete_url():
     project_name = request.form.get("delete_project_name")
-    data = load_json("config/sources.json")
 
-    if project_name in data["GitHub"]:
-        del data["GitHub"][project_name]
+    def mutator(data):
+        if project_name in data["GitHub"]:
+            del data["GitHub"][project_name]
 
-    save_json(data, "config/sources.json")
+    update_json(SOURCES_PATH, mutator)
     return redirect(url_for("manage_urls"))
 
 
 @app.route("/delete-task", methods=["POST"])
 def delete_task():
     task_index = int(request.form.get("delete_task_index")) - 1
-    data = load_json("config/tasks.json")
 
-    new_data = {
-        key: task
-        for i, (key, task) in enumerate(data["tasks"].items())
-        if i != task_index
-    }
+    def mutator(data):
+        tasks = data.get("tasks", {})
+        new_data = {
+            key: task for i, (key, task) in enumerate(tasks.items()) if i != task_index
+        }
+        reordered = {str(i + 1): task for i, task in enumerate(new_data.values())}
+        data["tasks"] = reordered
 
-    new_data = {str(i + 1): task for i, task in enumerate(new_data.values())}
-
-    data["tasks"] = new_data
-    save_json(data, "config/tasks.json")
+    update_json(TASKS_PATH, mutator)
     return redirect(url_for("manage_tasks"))
 
 
@@ -280,11 +327,23 @@ def run_downloads():
 @app.route("/download-source", methods=["POST"])
 def download_source():
     project_name = request.form.get("project_name")
-    data = load_json("config/sources.json")
-    project = data["GitHub"].get(project_name)
+    with config_lock:
+        data = load_json(SOURCES_PATH)
+        project = data["GitHub"].get(project_name)
 
     if project:
         url = project["url"]
+
+        def persist_success(release_timestamp):
+            def mutator(fresh_data):
+                project_details = fresh_data["GitHub"].get(project_name)
+                if project_details:
+                    download_manager.mark_download_complete(
+                        project_details, release_timestamp
+                    )
+
+            update_json(SOURCES_PATH, mutator)
+
         try:
             if url.endswith(".zip") or url.endswith(".7z"):
                 success = download_manager.handle_download_tasks(url)
@@ -294,8 +353,7 @@ def download_source():
                     project_name, project
                 )
             if success:
-                download_manager.mark_download_complete(project, release_timestamp)
-                save_json(data, "config/sources.json")
+                persist_success(release_timestamp)
                 return jsonify(
                     {
                         "status": "success",
@@ -320,9 +378,8 @@ def download_source():
 
 @app.route("/fetch-directory-contents")
 def fetch_directory_contents():
-    base_path = "downloads/output"
     try:
-        contents = get_directory_contents(base_path)
+        contents = get_directory_contents(OUTPUT_DIR)
         return jsonify({"status": "success", "contents": contents})
     except Exception as e:
         logger.error(f"Error fetching directory contents: {e}")
@@ -334,7 +391,7 @@ def fetch_directory_contents():
 @app.route("/run-cleanup")
 def run_cleanup():
     print("Running cleanup tasks")
-    run_background_task(cleanup_manager.delete_files, "config/tasks.json")
+    run_background_task(cleanup_manager.delete_files)
     should_clear_input = request.args.get("clear") == "true"
     if should_clear_input:
         clear_input_directory()
@@ -402,13 +459,18 @@ def delete_device():
 @app.route("/upload", methods=["POST"])
 def upload():
     device_name = request.form.get("device_name")
-    files = request.form.getlist("files[]")
+    raw_files = request.form.getlist("files[]")
 
-    logger.info(f"Selected files: {files}")
-    if not files:
+    logger.info(f"Selected files: {raw_files}")
+    if not raw_files:
         return jsonify({"status": "error", "message": "No files selected for upload."})
 
-    devices = load_json("config/devices.json").get("devices", [])
+    try:
+        files = validate_requested_files(raw_files)
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+    devices = load_devices()
     device = next((d for d in devices if d["name"] == device_name), None)
     if device:
         success, message = upload_manager.upload_to_device(
@@ -416,7 +478,7 @@ def upload():
             device["port"],
             device["username"],
             device["password"],
-            "downloads/output",
+            str(OUTPUT_DIR),
             files,
         )
         if success:

@@ -1,13 +1,22 @@
-import json
 import logging
 import os
 import shutil
 import zipfile
 from datetime import datetime
+from pathlib import Path
 
 import py7zr
 import requests
 from dotenv import load_dotenv
+
+from storage import (
+    CONFIG_DIR,
+    INPUT_DIR,
+    OUTPUT_DIR,
+    config_lock,
+    load_json,
+    update_json,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,20 +28,12 @@ dl_exceptions = ["DBI", "Ultrahand Overlay"]
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 USE_GITHUB_TOKEN = bool(GITHUB_TOKEN)
 
+SOURCES_PATH = CONFIG_DIR / "sources.json"
+
 if not USE_GITHUB_TOKEN:
     logger.warning(
         "GITHUB_TOKEN environment variable not set. Proceeding without authentication."
     )
-
-
-def load_json(filename):
-    with open(filename, "r") as file:
-        return json.load(file)
-
-
-def save_json(data, filename):
-    with open(filename, "w") as file:
-        json.dump(data, file, indent=4)
 
 
 def mark_download_complete(project_details, release_timestamp=None):
@@ -45,43 +46,23 @@ def mark_download_complete(project_details, release_timestamp=None):
     project_details.pop("highlight", None)
 
 
-def clear_output_directory():
-    output_dir = "downloads/output"
-    if not os.path.isdir(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
-        return
-    for item in os.listdir(output_dir):
-        item_path = os.path.join(output_dir, item)
-        try:
-            if os.path.isfile(item_path) or os.path.islink(item_path):
-                os.remove(item_path)
-            elif os.path.isdir(item_path):
-                shutil.rmtree(item_path)
-            logger.info(f"Cleared {item_path}")
-        except Exception as e:
-            logger.error(f"Failed to delete {item_path}. Reason: {e}")
-
-
-def handle_download_tasks(download_url):
+def handle_download_tasks(download_url, output_dir=OUTPUT_DIR):
     filename = os.path.basename(download_url)
-    download_folder = "downloads/input"
-    if not os.path.exists(download_folder):
-        os.makedirs(download_folder)
-    destination = os.path.join(download_folder, filename)
+    download_folder = INPUT_DIR
+    download_folder.mkdir(parents=True, exist_ok=True)
+    destination = download_folder / filename
     if download_file(download_url, destination):
-        extract_folder = "downloads/output"
-        if not os.path.exists(extract_folder):
-            os.makedirs(extract_folder)
+        extract_folder = Path(output_dir)
+        extract_folder.mkdir(parents=True, exist_ok=True)
         try:
             if download_url.endswith(".zip"):
                 extract_zip(destination, extract_folder)
             elif download_url.endswith(".7z"):
                 extract_7z(destination, extract_folder)
             else:
-                output_folder = "downloads/output"
-                if not os.path.exists(output_folder):
-                    os.makedirs(output_folder)
-                output_destination = os.path.join(output_folder, filename)
+                output_folder = Path(output_dir)
+                output_folder.mkdir(parents=True, exist_ok=True)
+                output_destination = output_folder / filename
                 shutil.copyfile(destination, output_destination)
             logger.info(f"File handled successfully: {filename}")
             return True
@@ -90,7 +71,7 @@ def handle_download_tasks(download_url):
     return False
 
 
-def download_file(download_url, destination):
+def download_file(download_url, destination: Path):
     try:
         headers = {"Authorization": f"token {GITHUB_TOKEN}"} if USE_GITHUB_TOKEN else {}
         response = requests.get(download_url, headers=headers, stream=True)
@@ -105,7 +86,7 @@ def download_file(download_url, destination):
         return False
 
 
-def extract_zip(zip_file, destination_folder):
+def extract_zip(zip_file: Path, destination_folder: Path):
     try:
         with zipfile.ZipFile(zip_file, "r") as zip_ref:
             zip_ref.extractall(destination_folder)
@@ -114,7 +95,7 @@ def extract_zip(zip_file, destination_folder):
         logger.error(f"Failed to extract zip file {zip_file}: {e}")
 
 
-def extract_7z(archive_file, destination_folder):
+def extract_7z(archive_file: Path, destination_folder: Path):
     try:
         logger.info(f"Starting extraction of 7z file: {archive_file}")
         with py7zr.SevenZipFile(archive_file, mode="r") as z:
@@ -124,7 +105,7 @@ def extract_7z(archive_file, destination_folder):
         logger.error(f"Failed to extract 7z file {archive_file}: {e}")
 
 
-def download_from_github_api(project_name, project_details):
+def download_from_github_api(project_name, project_details, output_dir=OUTPUT_DIR):
     url = project_details["url"]
     try:
         headers = {"Authorization": f"token {GITHUB_TOKEN}"} if USE_GITHUB_TOKEN else {}
@@ -137,7 +118,7 @@ def download_from_github_api(project_name, project_details):
 
         try:
             releases = response.json()
-        except json.JSONDecodeError as e:
+        except ValueError as e:
             logger.error(
                 f"Failed to parse JSON for {project_name}. URL: {url}, Error: {e}"
             )
@@ -154,15 +135,17 @@ def download_from_github_api(project_name, project_details):
                 updated_at = latest_release["assets"][asset_index].get("updated_at")
                 if updated_at:
                     updated_at = updated_at.replace("T", " ").replace("Z", "")
-                return handle_download_tasks(download_url), updated_at
+                return handle_download_tasks(download_url, output_dir), updated_at
     except requests.RequestException as e:
         logger.error(f"Failed to process URL {url}: {e}")
     return False, None
 
 
 def check_for_updates():
-    data = load_json("config/sources.json")
+    with config_lock:
+        data = load_json(SOURCES_PATH)
     updates_available = False
+    project_updates = {}
 
     for project_name, project_details in data["GitHub"].items():
         url = project_details["url"]
@@ -171,6 +154,7 @@ def check_for_updates():
 
         if url.endswith(".zip") or url.endswith(".7z"):
             logger.info(f"Skipping direct file URL for {project_name}: {url}")
+            project_updates[project_name] = {"updated": needs_download}
             updates_available = updates_available or needs_download
             continue
 
@@ -187,7 +171,7 @@ def check_for_updates():
 
             try:
                 releases = response.json()
-            except json.JSONDecodeError as e:
+            except ValueError as e:
                 logger.error(
                     f"Failed to parse JSON for {project_name}. URL: {url}, Error: {e}"
                 )
@@ -199,83 +183,147 @@ def check_for_updates():
 
                 if len(latest_release["assets"]) > asset_index:
                     updated_at = latest_release["assets"][asset_index].get("updated_at")
+                    comparison_target = project_details.get("last_updated")
                     if updated_at:
                         updated_at = updated_at.replace("T", " ").replace("Z", "")
                         if not last_updated or updated_at > last_updated:
-                            project_details["last_updated"] = updated_at
-
-                        needs_download = (
-                            project_details.get("downloaded_release")
-                            != project_details.get("last_updated")
-                        )
-                        project_details["updated"] = needs_download
-                        updates_available = updates_available or needs_download
+                            project_updates.setdefault(project_name, {})[
+                                "last_updated"
+                            ] = updated_at
+                            comparison_target = updated_at
+                    needs_download = (
+                        project_details.get("downloaded_release") != comparison_target
+                    )
 
         except requests.RequestException as e:
             logger.error(f"Failed to check updates for {project_name}: {e}")
 
-        updates_available = updates_available or project_details.get("updated", False)
+        project_updates.setdefault(project_name, {})["updated"] = needs_download
+        updates_available = updates_available or needs_download
 
-    return updates_available, data
+    def mutator(fresh_data):
+        for project_name, fields in project_updates.items():
+            project = fresh_data["GitHub"].get(project_name)
+            if not project:
+                continue
+            if "last_updated" in fields:
+                project["last_updated"] = fields["last_updated"]
+            project["updated"] = fields.get("updated", project.get("updated", False))
+
+    if project_updates:
+        update_json(SOURCES_PATH, mutator)
+
+    return updates_available, project_updates
 
 
-def perform_download_tasks(data):
-    clear_output_directory()
+def perform_download_tasks(projects):
+    staging_dir = OUTPUT_DIR.parent / ".output_staging"
+    if staging_dir.exists():
+        shutil.rmtree(staging_dir)
+    staging_dir.mkdir(parents=True, exist_ok=True)
 
-    for project_name, project_details in data["GitHub"].items():
+    download_results = {}
+    all_successful = True
+
+    for project_name, project_details in projects.items():
         url = project_details["url"]
 
         success = False
         release_timestamp = None
         try:
             if url.endswith(".zip") or url.endswith(".7z"):
-                success = handle_download_tasks(url)
+                success = handle_download_tasks(url, staging_dir)
                 release_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             else:
                 success, release_timestamp = download_from_github_api(
-                    project_name, project_details
+                    project_name, project_details, staging_dir
                 )
             if success:
-                mark_download_complete(project_details, release_timestamp)
+                download_results[project_name] = release_timestamp
             else:
                 logger.error(f"Failed to process URL {url}")
+                all_successful = False
         except Exception as e:
             logger.error(f"Failed to process URL {url}: {e}")
+            all_successful = False
+
+    if all_successful:
+        if OUTPUT_DIR.exists():
+            shutil.rmtree(OUTPUT_DIR)
+        shutil.move(staging_dir, OUTPUT_DIR)
+        return True, download_results
+
+    shutil.rmtree(staging_dir, ignore_errors=True)
+    logger.error("Download run failed; preserving existing output directory.")
+    return False, download_results
 
 
 def main(force_download=False):
     logger.info("Starting download tasks...")
-    data = load_json("config/sources.json")
 
     if force_download:
         logger.info("Force download. Performing download tasks...")
-        perform_download_tasks(data)
+        with config_lock:
+            data = load_json(SOURCES_PATH)
+        success, download_results = perform_download_tasks(data.get("GitHub", {}))
+        if success:
+            apply_download_results(download_results)
     else:
-        updates_available, data = check_for_updates()
+        updates_available, _ = check_for_updates()
         if updates_available:
             logger.info("Updates found. Performing download tasks...")
-            perform_download_tasks(data)
+            with config_lock:
+                data = load_json(SOURCES_PATH)
+            success, download_results = perform_download_tasks(data.get("GitHub", {}))
+            if success:
+                apply_download_results(download_results)
         else:
             logger.info("No updates found.")
 
-    save_json(data, "config/sources.json")
-
 
 def check_and_update_sources():
-    updates_available, data = check_for_updates()
-    data["last_checked"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    updates_available, project_updates = check_for_updates()
 
     if updates_available:
         logger.info("Updates found. Updating sources.json...")
     else:
         logger.info("No updates found.")
-    for project_details in data["GitHub"].values():
-        if project_details.get("updated"):
-            project_details["highlight"] = True
-        else:
-            project_details.pop("highlight", None)
 
-    save_json(data, "config/sources.json")
+    def mutator(data):
+        for project_name, fields in project_updates.items():
+            project = data["GitHub"].get(project_name)
+            if not project:
+                continue
+            project["updated"] = fields.get("updated", project.get("updated", False))
+            if "last_updated" in fields:
+                project["last_updated"] = fields["last_updated"]
+        data["last_checked"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for project_details in data["GitHub"].values():
+            if project_details.get("updated"):
+                project_details["highlight"] = True
+            else:
+                project_details.pop("highlight", None)
+
+    update_json(SOURCES_PATH, mutator)
+
+
+def apply_download_results(download_results):
+    if not download_results:
+        return
+
+    def mutator(data):
+        for project_name, release_timestamp in download_results.items():
+            project = data["GitHub"].get(project_name)
+            if not project:
+                continue
+            mark_download_complete(project, release_timestamp)
+        for project_details in data["GitHub"].values():
+            if project_details.get("updated"):
+                project_details["highlight"] = True
+            else:
+                project_details.pop("highlight", None)
+
+    update_json(SOURCES_PATH, mutator)
 
 
 if __name__ == "__main__":
