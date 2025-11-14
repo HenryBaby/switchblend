@@ -8,7 +8,16 @@ from threading import Thread
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
-from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask import (
+    Flask,
+    abort,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    url_for,
+)
 from flask_cors import CORS
 
 import cleanup_manager
@@ -18,6 +27,7 @@ import upload_manager
 
 from storage import (
     CONFIG_DIR,
+    DOWNLOADS_DIR,
     INPUT_DIR,
     OUTPUT_DIR,
     config_lock,
@@ -61,6 +71,17 @@ def get_devices():
 def run_background_task(func, *args):
     thread = Thread(target=func, args=args)
     thread.start()
+
+
+def get_latest_aio_zip():
+    if not DOWNLOADS_DIR.exists():
+        return None
+    zip_files = sorted(
+        DOWNLOADS_DIR.glob("AIO-*.zip"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    return zip_files[0] if zip_files else None
 
 
 def get_urls():
@@ -248,6 +269,7 @@ def index():
     projects, last_checked = get_urls()
     devices = get_devices()
     next_run_time = None
+    latest_aio_zip = get_latest_aio_zip()
 
     job = scheduler.get_jobs()[0] if scheduler.get_jobs() else None
     if job:
@@ -258,8 +280,19 @@ def index():
         projects=projects,
         last_checked=last_checked,
         next_run_time=next_run_time,
+        latest_aio_zip=latest_aio_zip,
         current_page="home",
         devices=devices,
+    )
+
+
+@app.route("/latest-package")
+def latest_package():
+    latest_zip = get_latest_aio_zip()
+    if not latest_zip:
+        abort(404, description="No packaged archive found.")
+    return send_from_directory(
+        latest_zip.parent, latest_zip.name, as_attachment=True, max_age=0
     )
 
 
