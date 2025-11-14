@@ -32,9 +32,9 @@
     <p><b>Next check: Not scheduled</b></p>
     {% endif %}
     {% if latest_aio_zip %}
-    <p><b><a href="{{ url_for('latest_package') }}">Latest AIO package: {{ latest_aio_zip.name }}</a></b></p>
+    <p><b><a href="{{ url_for('latest_package') }}">AIO: {{ latest_aio_zip.name }}</a></b></p>
     {% else %}
-    <p><b>Latest AIO package: Not built yet</b></p>
+    <p><b>AIO: Not built yet</b></p>
     {% endif %}
 </div>
 
