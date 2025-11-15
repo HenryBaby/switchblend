@@ -124,20 +124,6 @@ def normalize_source_url(raw_url: str) -> str:
     )
 
 
-def should_highlight_project(project: dict) -> bool:
-    stored = project.get("highlight")
-    if stored is not None:
-        return bool(stored)
-    if not project.get("updated"):
-        return False
-    last_updated = project.get("last_updated")
-    downloaded_release = project.get("downloaded_release")
-    if last_updated and downloaded_release:
-        return last_updated > downloaded_release
-    # If we have no downloaded release timestamp yet, the project still needs attention.
-    return True
-
-
 def get_urls():
     with config_lock:
         data = load_json(SOURCES_PATH)
@@ -147,7 +133,6 @@ def get_urls():
             "url": project["url"],
             "last_updated": project.get("last_updated", "Not available"),
             "updated": project.get("updated", False),
-            "highlight": should_highlight_project(project),
         }
         for key, project in data["GitHub"].items()
     ], data.get("last_checked", "Never")
