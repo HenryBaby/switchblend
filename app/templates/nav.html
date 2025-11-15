@@ -130,6 +130,12 @@
         const uploadForm = document.getElementById('uploadForm');
         const uploadStatus = document.getElementById('uploadStatus');
         const fileSelect = document.getElementById('file_select');
+        const resetUploadStatus = () => {
+            uploadStatus.className = 'alert d-none';
+            uploadStatus.innerText = '';
+        };
+
+        resetUploadStatus();
 
         checkbox.checked = localStorage.getItem('clearInputCheckbox') === 'true';
 
@@ -145,6 +151,7 @@
         });
 
         $('#uploadModal').on('show.bs.modal', function () {
+            resetUploadStatus();
             fetch('/fetch-directory-contents')
                 .then(response => response.json())
                 .then(data => {
@@ -156,6 +163,7 @@
         uploadForm.addEventListener('submit', function (event) {
             event.preventDefault();
             const formData = new FormData(uploadForm);
+            resetUploadStatus();
 
             const checkboxes = document.querySelectorAll('#file_select input[type="checkbox"]:checked');
             if (checkboxes.length === 0) {
@@ -168,24 +176,37 @@
                 formData.append('files[]', checkbox.value);
             });
 
+            uploadStatus.className = 'alert alert-info';
+            uploadStatus.innerText = 'Connecting to device and uploading…';
+            uploadStatus.classList.remove('d-none');
+
             fetch(uploadForm.action, {
                 method: uploadForm.method,
                 body: formData,
             })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
+                .then(async response => {
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (parseError) {
+                        if (!response.ok) {
+                            throw new Error('Upload request failed.');
+                        }
+                        throw parseError;
+                    }
+
+                    if (response.ok && data.status === 'success') {
                         uploadStatus.className = 'alert alert-success';
                         uploadStatus.innerText = data.message;
                     } else {
                         uploadStatus.className = 'alert alert-danger';
-                        uploadStatus.innerText = data.message;
+                        uploadStatus.innerText = data.message || 'Upload failed.';
                     }
                     uploadStatus.classList.remove('d-none');
                 })
                 .catch(error => {
                     uploadStatus.className = 'alert alert-danger';
-                    uploadStatus.innerText = 'An unexpected error occurred';
+                    uploadStatus.innerText = 'Unable to reach the device or server. Please verify the connection and try again.';
                     uploadStatus.classList.remove('d-none');
                 });
         });

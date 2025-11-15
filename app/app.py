@@ -6,6 +6,7 @@ from pathlib import Path
 from threading import Thread
 
 import requests
+from urllib.parse import urlparse
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
 from flask import (
@@ -84,6 +85,45 @@ def get_latest_aio_zip():
     return zip_files[0] if zip_files else None
 
 
+def normalize_source_url(raw_url: str) -> str:
+    template = (
+        "https://api.github.com/repos/{owner}/{repo}/releases"
+        "?per_page=1&sort=created&order=desc"
+    )
+    if not raw_url:
+        raise ValueError("A source URL or owner/repo is required.")
+    cleaned = raw_url.strip()
+    if not cleaned:
+        raise ValueError("A source URL or owner/repo is required.")
+
+    lowered = cleaned.lower()
+    if lowered.startswith("https://api.github.com/") or lowered.startswith(
+        "http://api.github.com/"
+    ):
+        return cleaned
+
+    if cleaned.startswith(("http://", "https://")):
+        parsed = urlparse(cleaned)
+        host = parsed.netloc.lower()
+        if host.endswith("github.com"):
+            segments = [segment for segment in parsed.path.split("/") if segment]
+            if len(segments) == 2 and parsed.query == "" and not parsed.path.endswith(".zip"):
+                owner = segments[0]
+                repo = segments[1].removesuffix(".git")
+                return template.format(owner=owner, repo=repo)
+        return cleaned
+
+    if "/" in cleaned:
+        segments = [segment for segment in cleaned.split("/") if segment]
+        if len(segments) >= 2:
+            owner, repo = segments[0], segments[1]
+            return template.format(owner=owner, repo=repo)
+
+    raise ValueError(
+        "Enter either a GitHub owner/repo or a full download/API URL."
+    )
+
+
 def get_urls():
     with config_lock:
         data = load_json(SOURCES_PATH)
@@ -139,11 +179,22 @@ def update_urls():
         new_url = request.form.get("new_url")
 
         if new_url and new_name:
-            new_entry = {"url": new_url, "name": new_name, "updated": True}
+            try:
+                normalized_url = normalize_source_url(new_url)
+            except ValueError as e:
+                return jsonify({"status": "error", "message": str(e)})
 
-            if "api.github.com" in new_url:
+            is_api_source = "api.github.com" in normalized_url
+            new_entry = {
+                "url": normalized_url,
+                "name": new_name,
+                "updated": True,
+                "downloaded_release": None,
+            }
+
+            if is_api_source:
                 try:
-                    response = requests.get(new_url)
+                    response = requests.get(normalized_url)
                     response.raise_for_status()
                     releases = response.json()
 

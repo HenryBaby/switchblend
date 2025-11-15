@@ -9,8 +9,9 @@
         <div class="col-md-12">
             <h3>Source Management</h3>
             <p>Add your sources below.</p>
-            <p>Currently only supports GitHub API links, with the following format:
-                https://api.github.com/repos/USER_NAME/REPO_NAME/releases?per_page=1&sort=created&order=desc</p>
+            <p>Add GitHub repositories using <code>OWNER/REPO</code> (e.g. <code>HenryBaby/switchblend</code>)
+                and the tool will expand it to the required API URL automatically. You can still paste a full
+                GitHub API link or any direct .zip/.7z URL if needed.</p>
         </div>
     </div>
 </div>
@@ -22,7 +23,7 @@
                 <input type="text" class="form-control" placeholder="Project Name" name="new_name" required>
             </div>
             <div class="col-md-9 px-1">
-                <input type="text" class="form-control" placeholder="Project URL" name="new_url" required>
+                <input type="text" class="form-control" placeholder="owner/repo or full URL" name="new_url" required>
             </div>
             <div class="col-md-1">
                 <button type="submit" class="btn btn-primary">+</button>
