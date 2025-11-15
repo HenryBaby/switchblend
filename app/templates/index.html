@@ -16,8 +16,8 @@
         <tbody>
             {% for project in projects %}
             <tr>
-                <td {% if project.updated %}class="table-warning" {% endif %}>{{ project.name }}</td>
-                <td {% if project.updated %}class="table-warning" {% endif %}>{{ project.last_updated }}</td>
+                <td {% if project.highlight %}class="table-warning" {% endif %}>{{ project.name }}</td>
+                <td {% if project.highlight %}class="table-warning" {% endif %}>{{ project.last_updated }}</td>
                 <td>
                     <button class="btn btn-success download-btn" data-project-name="{{ project.name }}">↓</button>
                 </td>

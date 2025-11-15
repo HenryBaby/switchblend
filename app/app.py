@@ -84,6 +84,16 @@ def get_latest_aio_zip():
     return zip_files[0] if zip_files else None
 
 
+def should_highlight(project: dict) -> bool:
+    if not project.get("updated"):
+        return False
+    last_updated = project.get("last_updated")
+    downloaded_release = project.get("downloaded_release")
+    if not (last_updated and downloaded_release):
+        return False
+    return last_updated > downloaded_release
+
+
 def get_urls():
     with config_lock:
         data = load_json(SOURCES_PATH)
@@ -93,6 +103,7 @@ def get_urls():
             "url": project["url"],
             "last_updated": project.get("last_updated", "Not available"),
             "updated": project.get("updated", False),
+            "highlight": should_highlight(project),
         }
         for key, project in data["GitHub"].items()
     ], data.get("last_checked", "Never")
